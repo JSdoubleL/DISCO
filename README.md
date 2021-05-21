@@ -37,5 +37,5 @@ python3 tag_decomp.py -i <input_file> -o <ouput_file> -d <delimiter>
 ### Example
 
 ```cmd
-python tag_decomp.py -i example/gtrees-mult.trees
+python3 tag_decomp.py -i example/gtrees-mult.trees
 ```
