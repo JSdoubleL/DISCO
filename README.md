@@ -11,7 +11,7 @@ Decomposition Into Single-COpy gene trees (DISCO) is a method for decomposing mu
 
 **Input**: File containing list of multi-copy trees in newick format
 
-**Output**: File containing list resulting list of trees after decomposition in newick format
+**Output**: File containing resulting list of single-copy trees after decomposition in newick format
 
 ```
 python3 tag_decomp.py -i <input_file> -o <ouput_file> -d <delimiter>
