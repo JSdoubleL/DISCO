@@ -31,7 +31,7 @@ python3 tag_decomp.py -i <input_file> -o <ouput_file> -d <delimiter>
 - `-n`: No decomposition (outputs rooted gene trees).
 - `-v`: Enable verbose output
 - `-rp`: Remove in-paralogs before rooting/scoring (does not affect output, only reported score)
-- `--trivial`: Includes trivial trees in decomposition output (by default trees not containing a quartet or rooted triple are discarded).
+- `--trivial`: Includes trivial trees in decomposition output (by default trees not containing a quartet).
 - `--outgroups`: Write outgroups (including ties) to txt file. (Might make program slower).
 
 ### Example
