@@ -226,6 +226,7 @@ def decompose(tree, single_tree=False):
             delete = left if len(left.s) < len(right.s) else right
             if not single_tree:
                 out.append(tree.extract_subtree(delete))
+                out[-1].suppress_unifurcations()
             node.remove_child(delete)
     tree.suppress_unifurcations() # all the duplication nodes will be unifurcations
     out.append(tree)
@@ -291,19 +292,16 @@ def main(args):
             if args.no_decomp:
                 out = [tree]
             else:
-                out = decompose(tree, args.single_tree)
+                out = list(filter(lambda x:x.num_nodes(internal=False) >= args.minimum, decompose(tree, args.single_tree)))
 
             # Output trees
-            num_output = 0
             for t in out:
                 if not args.no_decomp: unroot(t)
                 t.suppress_unifurcations()
-                if not trivial(t.newick()) or args.trivial:
-                    num_output += 1
-                    fo.write(t.newick() + '\n')
+                fo.write(t.newick() + '\n')
             
             if args.verbose:
-                print('Decomposition strategy outputted', num_output, 'non-trivial tree(s).\n' if not args.trivial else 'tree(s).\n')
+                print('Decomposition strategy outputted', len(out), 'tree(s) with minimum size', args.minimum, '.\n')
 
             # output outgroups
             if args.outgroups:
@@ -337,8 +335,8 @@ if __name__ == "__main__":
                         help="Only output single large tree")
     parser.add_argument('-v', '--verbose', action='store_true',
                         help="Enables verbose output")
-    parser.add_argument("--trivial", action='store_true',
-                        help="Include trivial trees (trees without quartets) in output.")
+    parser.add_argument('-m', "--minimum", type=int, 
+                        help="Minimum tree size outputted", default=4)
     parser.add_argument("--outgroups", action='store_true',
                         help="Output outgroups to file (including ties)")
     parser.add_argument('-rp', "--remove_in_paralogs", action='store_true',
