@@ -1,10 +1,10 @@
 # DISCO
 
-Decomposition Into Single-COpy gene trees (DISCO) is a method for decomposing multi-copy gene-family trees while attempting to preserve orthologs and discard paralogs.
+Decomposition Into Single-COpy gene trees (DISCO) is a method for decomposing multi-copy gene-family trees while attempting to preserve orthologs and discard paralogs. These single-copy gene trees can be subsiquently used by methods that can estimate species trees from single-copy gene trees such as [ASTRAL](https://github.com/smirarab/ASTRAL) or [ASTRID](https://github.com/pranjalv123/ASTRID) in order to obtain an accurate estimation of the species tree. 
 
 ## Algorithm
 
-*TODO add more details.* Given a list of multi-copy gene trees, DISCO does the following for each tree:
+Given a list of multi-copy gene trees, DISCO does the following for each tree:
 
 1. Run the ASTRAL-Pro rooting and tagging algorithm ([Zhang et. al. 2020](https://doi.org/10.1093/molbev/msaa139)) to determine the best estimate of orthology.
 2. Decompose gene tree by splitting off the smallest subtree under every duplication event, yielding a set of single copy trees.
