@@ -6,7 +6,7 @@ Decomposition Into Single-COpy gene trees (DISCO) is a method for decomposing mu
 
 *TODO add more details.* Given a list of multi-copy gene trees, DISCO does the following for each tree:
 
-1. Run the ASTRAL-Pro rooting and tagging algorithm to determine the best estimate of orthology.
+1. Run the ASTRAL-Pro rooting and tagging algorithm ([Zhang et. al. 2020](https://doi.org/10.1093/molbev/msaa139)) to determine the best estimate of orthology.
 2. Decompose gene tree by splitting off the smallest subtree under every duplication event, yielding a set of single copy trees.
 
 ## Dependencies
@@ -14,9 +14,11 @@ Decomposition Into Single-COpy gene trees (DISCO) is a method for decomposing mu
 - Python 3
 - [TreeSwift](https://github.com/niemasd/TreeSwift)
 
+Treeswift can be install with: `pip install treeswift`
+
 ## Usage
 
-### DISCO.py
+### disco.py
 
 **Input**: File containing list of multi-copy trees in newick format
 
@@ -46,7 +48,7 @@ python3 disco.py -i <input_file> -o <ouput_file> -d <delimiter>
 python3 tag_decomp.py -i example/gtrees-mult.trees
 ```
 
-### CA_DISCO.py
+### ca_disco.py
 
 **Input**: File containing list of multi-copy trees in newick format and set of alignment files in phylip format corresponding to the gene families.
 
@@ -55,6 +57,8 @@ python3 tag_decomp.py -i example/gtrees-mult.trees
 ```
 python3 ca_disco.py -i <input_trees> -a <alignments_list> -t <taxa_list> -o <output> -d <delimiter> -m <n> 
 ```
+
+`disco.py` must be present in the same directory as `ca_disco.py` in order for it to run.
 
 #### Arguments
 
