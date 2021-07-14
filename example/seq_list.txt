@@ -1,0 +1,10 @@
+example/seqs/0001.phy
+example/seqs/0002.phy
+example/seqs/0003.phy
+example/seqs/0004.phy
+example/seqs/0005.phy
+example/seqs/0006.phy
+example/seqs/0007.phy
+example/seqs/0008.phy
+example/seqs/0009.phy
+example/seqs/0010.phy

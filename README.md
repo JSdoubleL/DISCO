@@ -58,7 +58,7 @@ python3 tag_decomp.py -i example/gtrees-mult.trees
 python3 ca_disco.py -i <input_trees> -a <alignments_list> -t <taxa_list> -o <output> -d <delimiter> -m <n> 
 ```
 
-`disco.py` must be present in the same directory as `ca_disco.py` in order for it to run.
+`disco.py` must be present in the same directory as `ca_disco.py` in order for it to run. Also, unlike `disco.py` it is necessary for the input newick trees given to `ca_disco.py` have unique leaf labels where the taxa name comes first and is separated from the rest of the name by some delimiter. 
 
 #### Arguments
 
@@ -73,4 +73,6 @@ python3 ca_disco.py -i <input_trees> -a <alignments_list> -t <taxa_list> -o <out
 
 #### Example
 
-*TODO: Add example*
+```cmd
+python3 ca_disco.py -i example/g_100.trees -o example.phy -a example/seq_list.txt -t example/taxa_list.txt
+```
