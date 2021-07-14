@@ -6,7 +6,6 @@ from Bio.SeqRecord import SeqRecord
 from Bio.Seq import Seq
 import os
 import argparse
-from tqdm import tqdm
 
 from argparse import ArgumentParser, ArgumentTypeError
 import re
@@ -72,12 +71,12 @@ if __name__=="__main__":
                         help="File containing paths to all alignment files in order the genes are found in the input newick file")
     parser.add_argument('-d', '--delimiter', type=str, default='_',
                         help="Delimiter separating taxon label from the rest of the leaf label.")
-    parser.add_argument('-f', '--filter', type=int, default=4,
+    parser.add_argument('-m', '--filter', type=int, default=4,
                         help="Exclude decomposed trees with less then X taxa")
     #parser.add_argument("-k", "--ngenes", type=int, default = math.inf, help="maximum number of input gene trees to use")
     #parser.add_argument("-d", "--decomp", type=str, default = "s", help = "decomposition method, either s or d for sampling (linear) or decomposition")
     #parser.add_argument("-l", "--seqln", type=int, default = math.inf, help="maximum kept sequence length of alignments")
-    parser.add_argument("-t", "--taxonset", type=parseTaxonList, default = range(0, 101), 
+    parser.add_argument("-t", "--taxonset", type=parseTaxonList, required=True, 
                         help="taxon set (a range of numbers in the format of a-b) or file listing taxa (each label alone on one line)")
     args = parser.parse_args()
 
@@ -91,12 +90,13 @@ if __name__=="__main__":
     LEAFSET = args.taxonset
     OUTPUT = args.output #or INPATH + f".{K}.{DECOMPM}.aln"
     delim = args.delimiter
+    F = args.filter
 
     num_genes = sum(1 for _ in open(INPATH))
 
     with open(INPATH) as fh:
         aln = None
-        for i, l in tqdm(enumerate(fh, start=1), total=num_genes):
+        for i, l in enumerate(fh, start=1):
             t = ts.read_tree_newick(l)
             t.reroot(get_min_root(t, delim)[0])
             tag(t, delim)
