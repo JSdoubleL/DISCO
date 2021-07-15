@@ -6,7 +6,7 @@ Decomposition Into Single-COpy gene trees (DISCO) is a method for decomposing mu
 
 Given a list of multi-copy gene trees, DISCO does the following for each tree:
 
-1. Run the ASTRAL-Pro rooting and tagging algorithm ([Zhang et. al. 2020](https://doi.org/10.1093/molbev/msaa139)) to determine the best estimate of orthology.
+1. Root the tree and tag each internal vertex as either a duplication event or a speciation event in such a way that minimizes the total number of duplications and losses. We do this with the ASTRAL-Pro rooting and tagging algorithm ([Zhang et. al. 2020](https://doi.org/10.1093/molbev/msaa139)).
 2. Decompose gene tree by splitting off the smallest subtree under every vertex tagged as a duplication from the bottom up until all duplication events are resolved; it returns the set of single-copy trees produced.
 
 ## Dependencies
@@ -14,7 +14,7 @@ Given a list of multi-copy gene trees, DISCO does the following for each tree:
 - Python 3
 - [TreeSwift](https://github.com/niemasd/TreeSwift)
 
-Treeswift can be install with: `pip install treeswift`
+Treeswift can be installed with: `pip install treeswift`
 
 ## Usage
 
@@ -58,14 +58,14 @@ python3 tag_decomp.py -i example/gtrees-mult.trees
 python3 ca_disco.py -i <input_trees> -a <alignments_list> -t <taxa_list> -o <output> -d <delimiter> -m <n> 
 ```
 
-`disco.py` must be present in the same directory as `ca_disco.py` in order for it to run. Also, unlike `disco.py` it is necessary for the input newick trees given to `ca_disco.py` have unique leaf labels where the taxa name comes first and is separated from the rest of the name by some delimiter. 
+`disco.py` must be present in the same directory as `ca_disco.py` in order for it to run. Also, unlike `disco.py`, it is necessary for the input newick trees given to `ca_disco.py` to have unique leaf labels where the taxon name comes first and is separated from the rest of the name by some delimiter. 
 
 #### Arguments
 
 - **Required**
   - `-i`: Input newick tree file
   - `-a`: Text file containing paths to alignment files (one path for line, each path corresponding to gene-family tree on the same line in teh input tree file)
-  - `-t`: Text file containing taxa list (one taxa per line)
+  - `-t`: Text file containing taxa list (one taxon per line)
   - `-o`: Output concatenated alignment file
 - **Optional**
   - `-m`: Minimum number of taxa required for tree to be outputted. Default 4.
