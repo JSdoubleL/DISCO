@@ -1,5 +1,6 @@
 import treeswift
 import argparse
+import os
 
 def unroot(tree):
     """
@@ -232,23 +233,39 @@ def decompose(tree, single_tree=False):
     out.append(tree)
     return out
 
-def trivial(newick_str):
-    """
-    Determines if a newick string represents a trivial tree (tree containing no quartets).
 
-    Parameters
-    ----------
-    newick_str: newick string
+def parse_notung_gtree(gtree_file):
+    tree = treeswift.read_tree_newick(gtree_file)
+    for u in tree.traverse_postorder():
+        if u.is_leaf():
+            u.s = set([u.get_label()])
+        else: 
+            [left, right] = u.child_nodes()
+            u.s =  left.s.union(right.s)
+            u.tag = 'D' if hasattr(u, 'edge_params') and 'D=Y' in u.edge_params else 'S'
+    return tree
 
-    Returns True if tree contains less than two '('
-    """
-    count = 0
-    for c in newick_str:
-        if c == '(':
-            count += 1
-        if count > 1:
-            return False
-    return True
+
+def run_notung(gtree, stree_path, notung_path, dup_cost=1.5,  loss_cost=1):
+    tmp_file = 'tmp.tree'
+    notung_output = tmp_file + '.rooting.0'
+
+    # confirm species tree is rooted.
+    stree = treeswift.read_tree_newick(stree_path)
+    if stree.root.num_children() != 2:
+        raise Exception("Species tree must be rooted.")
+
+    # Write gene tree to temp file so Notung can read it 
+    gtree.resolve_polytomies()
+    with open(tmp_file, 'w') as f:
+        f.write(gtree.newick())
+
+    # run Notung
+    os.system('java -jar {} {} -s {} --root --infertransfers false --log --treeoutput ' \
+        'nhx --speciestag prefix --costdup {} --costloss {} --nolosses'
+        .format(notung_path, tmp_file, stree_path, dup_cost, loss_cost))
+
+    return parse_notung_gtree(notung_output)
 
 
 def main(args):
@@ -271,22 +288,25 @@ def main(args):
             if args.remove_in_paralogs:
                 num_paralogs = remove_in_paralogs(tree, args.delimiter)
 
-            root, score, ties = get_min_root(tree, args.delimiter)
-            tree.reroot(root)
-            tag(tree, args.delimiter)
+            if args.species_tree is None:
+                root, score, ties = get_min_root(tree, args.delimiter)
+                tree.reroot(root)
+                tag(tree, args.delimiter)
 
-            if args.verbose:
-                print('Tree ', i, ': Tree has ', len(tree.root.s), ' species.', sep='')
-                if args.remove_in_paralogs:
-                    print(num_paralogs, 'in-paralogs removed prior to rooting/scoring.')  
-                if len(tree.root.s) < 2:
-                    print('Uninformative')
-                elif tree.n_dup == 0:
-                    print('Single-Copy')                 
-                else:
-                    outgroup = min((len(child.s), child.s) for child in tree.root.child_nodes())                    
-                    print('Best root had score ', score, ' with ', tree.n_dup, ' non-terminal' if args.remove_in_paralogs else '',
-                        ' duplications; there were ', len(ties), ' ties.\nOutgroup: {',','.join(outgroup[1]),'}', sep='')
+                if args.verbose:
+                    print('Tree ', i, ': Tree has ', len(tree.root.s), ' species.', sep='')
+                    if args.remove_in_paralogs:
+                        print(num_paralogs, 'in-paralogs removed prior to rooting/scoring.')  
+                    if len(tree.root.s) < 2:
+                        print('Uninformative')
+                    elif tree.n_dup == 0:
+                        print('Single-Copy')                 
+                    else:
+                        outgroup = min((len(child.s), child.s) for child in tree.root.child_nodes())                    
+                        print('Best root had score ', score, ' with ', tree.n_dup, ' non-terminal' if args.remove_in_paralogs else '',
+                            ' duplications; there were ', len(ties), ' ties.\nOutgroup: {',','.join(outgroup[1]),'}', sep='')
+            else: # Notung rooting
+                tree = run_notung(tree, args.species_tree, args.notung_path)
 
             # Choose modes
             if args.no_decomp:
@@ -329,17 +349,21 @@ if __name__ == "__main__":
                         help="Output tree list file")
     parser.add_argument('-d', "--delimiter", type=str, 
                         help="Delimiter separating species name from rest of leaf label")
-    parser.add_argument('-n', '--no-decomp', action='store_true', 
-                        help="Outputs rooted trees without decomposition")
-    parser.add_argument('-s', '--single_tree', action='store_true',
-                        help="Only output single large tree")
     parser.add_argument('-v', '--verbose', action='store_true',
                         help="Enables verbose output")
     parser.add_argument('-m', "--minimum", type=int, 
                         help="Minimum tree size outputted", default=4)
+    parser.add_argument('-s', '--species-tree', type=str, 
+                        help="Species tree for reconciliation rooting using Notung")
+    parser.add_argument('--notung-path', type=str, default='./Notung-2.9.1.5.jar',
+                        help="Path to Notung jar file")
     parser.add_argument("--outgroups", action='store_true',
                         help="Output outgroups to file (including ties)")
-    parser.add_argument('-rp', "--remove_in_paralogs", action='store_true',
+    parser.add_argument("--remove_in_paralogs", action='store_true',
                         help="Remove in-paralogs before rooting/scoring tree.")
+    parser.add_argument('--no-decomp', action='store_true', 
+                        help="Outputs rooted trees without decomposition")
+    parser.add_argument('--single-tree', action='store_true',
+                        help="Only output single large tree")
 
     main(parser.parse_args())
