@@ -268,6 +268,14 @@ def run_notung(gtree, stree_path, notung_path, dup_cost=1.5,  loss_cost=1):
     return parse_notung_gtree(notung_output)
 
 
+def relabel(tree, delimiter=None):
+    if delimiter is None:
+        return tree
+    for l in tree.traverse_postorder(internal=False):
+        l.set_label(l.get_label().split(delimiter)[0])
+    return tree
+
+
 def main(args):
 
     if args.output is None:
@@ -317,6 +325,7 @@ def main(args):
             # Output trees
             for t in out:
                 if not args.no_decomp: unroot(t)
+                if args.relabel: relabel(t, args.delimiter)
                 t.suppress_unifurcations()
                 fo.write(t.newick() + '\n')
             
@@ -355,6 +364,8 @@ if __name__ == "__main__":
                         help="Minimum tree size outputted", default=4)
     parser.add_argument('-s', '--species-tree', type=str, 
                         help="Species tree for reconciliation rooting using Notung")
+    parser.add_argument('--relabel', action='store_true', 
+                        help="Overwrite current labels with species label in output (used with delimiter).")
     parser.add_argument('--notung-path', type=str, default='./Notung-2.9.1.5.jar',
                         help="Path to Notung jar file")
     parser.add_argument("--outgroups", action='store_true',
