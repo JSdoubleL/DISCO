@@ -247,7 +247,7 @@ def parse_notung_gtree(gtree_file):
 
 
 def run_notung(gtree, stree_path, notung_path, dup_cost=1.5,  loss_cost=1):
-    tmp_file = '{}{}tmp.tree'.format(stree_path.rsplit(os.sep, 2)[0], os.sep) if os.sep in stree_path else 'tmp.tree'
+    tmp_file = '{}{}tmp.tree'.format(stree_path.rsplit(os.sep, 1)[0], os.sep) if os.sep in stree_path else 'tmp.tree'
     notung_output = tmp_file + '.rooting.0'
 
     # confirm species tree is rooted.
