@@ -247,7 +247,8 @@ def parse_notung_gtree(gtree_file):
 
 
 def run_notung(gtree, stree_path, notung_path, dup_cost=1.5,  loss_cost=1):
-    tmp_file = '{}{}tmp.tree'.format(stree_path.rsplit(os.sep, 1)[0], os.sep) if os.sep in stree_path else 'tmp.tree'
+    outdir = stree_path.rsplit(os.sep, 1)[0] + os.sep if os.sep in stree_path else ''
+    tmp_file = outdir + 'tmp.tree'
     notung_output = tmp_file + '.rooting.0'
 
     # confirm species tree is rooted.
@@ -271,9 +272,11 @@ def run_notung(gtree, stree_path, notung_path, dup_cost=1.5,  loss_cost=1):
         f.write(gtree.newick())
 
     # run Notung
-    os.system('java -jar {} {} -s {} --root --infertransfers false --log --treeoutput ' \
-        'nhx --speciestag prefix --costdup {} --costloss {} --nolosses'
-        .format(notung_path, tmp_file, clean_stree_path, dup_cost, loss_cost))
+    command = 'java -jar {} {} -s {} --root --infertransfers false --log --treeoutput ' \
+        'nhx --speciestag prefix --costdup {} --costloss {} --nolosses' \
+        .format(notung_path, tmp_file, clean_stree_path, dup_cost, loss_cost)
+    if outdir != '': command += ' --outputdir {}'.format(outdir)
+    os.system(command)
 
     return parse_notung_gtree(notung_output)
 
