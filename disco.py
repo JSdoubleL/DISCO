@@ -247,13 +247,23 @@ def parse_notung_gtree(gtree_file):
 
 
 def run_notung(gtree, stree_path, notung_path, dup_cost=1.5,  loss_cost=1):
-    tmp_file = '{}{}tmp.tree'.format(stree_path.rsplit(os.sep, 1)[0], os.sep)
+    tmp_file = '{}{}tmp.tree'.format(stree_path.rsplit(os.sep, 2)[0], os.sep) if os.sep in stree_path else 'tmp.tree'
     notung_output = tmp_file + '.rooting.0'
 
     # confirm species tree is rooted.
     stree = treeswift.read_tree_newick(stree_path)
     if stree.root.num_children() != 2:
         raise Exception("Species tree must be rooted.")
+
+    # clean species tree
+    for u in stree.traverse_postorder(leaves=False):
+        u.label = None
+        u.edge_length = None
+
+    prefix, postfix = stree_path.rsplit('.', 1)
+    clean_stree_path = "{}-cleaned.{}".format(prefix, postfix)
+    with open(clean_stree_path, 'w') as f:
+        f.write(stree.newick())
 
     # Write gene tree to temp file so Notung can read it 
     gtree.resolve_polytomies()
@@ -263,7 +273,7 @@ def run_notung(gtree, stree_path, notung_path, dup_cost=1.5,  loss_cost=1):
     # run Notung
     os.system('java -jar {} {} -s {} --root --infertransfers false --log --treeoutput ' \
         'nhx --speciestag prefix --costdup {} --costloss {} --nolosses'
-        .format(notung_path, tmp_file, stree_path, dup_cost, loss_cost))
+        .format(notung_path, tmp_file, clean_stree_path, dup_cost, loss_cost))
 
     return parse_notung_gtree(notung_output)
 
