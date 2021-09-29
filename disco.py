@@ -327,7 +327,7 @@ def main(args):
                         print('Best root had score ', score, ' with ', tree.n_dup, ' non-terminal' if args.remove_in_paralogs else '',
                             ' duplications; there were ', len(ties), ' ties.\nOutgroup: {',','.join(outgroup[1]),'}', sep='')
             else: # Notung rooting
-                tree = run_notung(tree, args.species_tree, args.notung_path)
+                tree = run_notung(tree, args.species_tree, args.notung_path, args.dup_cost, args.loss_cost)
 
             # Choose modes
             if args.no_decomp:
@@ -379,6 +379,10 @@ if __name__ == "__main__":
                         help="Species tree for reconciliation rooting using Notung")
     parser.add_argument('--relabel', action='store_true', 
                         help="Overwrite current labels with species label in output (used with delimiter).")
+    parser.add_argument('--dup-cost', type=float, default=1.5,
+                        help="Duplication cost (only works with Notung rooting for now).")
+    parser.add_argument('--loss-cost', type=float, default=1,
+                        help="Loss cost (only works with Notung rooting for now).")
     parser.add_argument('--notung-path', type=str, default='./Notung-2.9.1.5.jar',
                         help="Path to Notung jar file")
     parser.add_argument("--outgroups", action='store_true',
