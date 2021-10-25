@@ -281,6 +281,14 @@ def run_notung(gtree, stree_path, notung_path, dup_cost=1.5,  loss_cost=1):
     return parse_notung_gtree(notung_output)
 
 
+def get_notung_num_dups():
+    with open('tmp.tree.rooting.ntglog', 'r') as f:
+        for line in f:
+            s = line.split(' ')
+            if s[1] == 'Has:':
+                return int(s[2])
+
+
 def relabel(tree, delimiter=None):
     if delimiter is None:
         return tree
@@ -302,6 +310,8 @@ def main(args):
     if args.outgroups:
         open(outgroup_file_name, 'w').close()
 
+    dup_stats = 'num-dups,num-outputted,mean-size,max-size\n'
+
     with open(args.input, 'r') as fi, open(output, 'w') as fo:
         for i, line in enumerate(fi, 1):
             tree = treeswift.read_tree_newick(line)
@@ -313,6 +323,8 @@ def main(args):
                 root, score, ties = get_min_root(tree, args.delimiter)
                 tree.reroot(root)
                 tag(tree, args.delimiter)
+
+                n_dups = tree.n_dup # record number of duplication events
 
                 if args.verbose:
                     print('Tree ', i, ': Tree has ', len(tree.root.s), ' species.', sep='')
@@ -328,6 +340,8 @@ def main(args):
                             ' duplications; there were ', len(ties), ' ties.\nOutgroup: {',','.join(outgroup[1]),'}', sep='')
             else: # Notung rooting
                 tree = run_notung(tree, args.species_tree, args.notung_path, args.dup_cost, args.loss_cost)
+                if args.dup_stats:
+                    n_dups = get_notung_num_dups()
 
             # Choose modes
             if args.no_decomp:
@@ -345,6 +359,11 @@ def main(args):
             if args.verbose:
                 print('Decomposition strategy outputted', len(out), 'tree(s) with minimum size', args.minimum, '.\n')
 
+            if args.dup_stats:
+                sizes = [t.num_nodes(internal=False) for t in out]
+                dup_stats += '{},{},{},{}\n'.format(n_dups, len(out), sum(sizes) / len(out) if len(out) != 0 else 0, 
+                                                    max(sizes) if len(out) != 0 else 0)
+
             # output outgroups
             if args.outgroups:
                 og_tree = treeswift.read_tree_newick(line)
@@ -359,7 +378,9 @@ def main(args):
                             tag(og_tree, args.delimiter)
                             outgroup = min((len(child.s), child.s) for child in og_tree.root.child_nodes())
                             outgfile.write('{' + ','.join(outgroup[1]) + '}\n')
-            
+
+        open(args.input.rsplit('.', 1)[0] + '_stats_{}.csv'.format('notung' if args.species_tree is not None else 'apro'), 'w').write(dup_stats)
+
 
 if __name__ == "__main__":
 
@@ -387,6 +408,8 @@ if __name__ == "__main__":
                         help="Path to Notung jar file")
     parser.add_argument("--outgroups", action='store_true',
                         help="Output outgroups to file (including ties)")
+    parser.add_argument("--dup-stats", action='store_true',
+                        help="Output file listing number of duplication events detected per gene tree and number of trees outputted.")
     parser.add_argument("--remove_in_paralogs", action='store_true',
                         help="Remove in-paralogs before rooting/scoring tree.")
     parser.add_argument('--no-decomp', action='store_true', 
