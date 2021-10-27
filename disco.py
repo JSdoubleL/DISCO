@@ -236,13 +236,19 @@ def decompose(tree, single_tree=False):
 
 def parse_notung_gtree(gtree_file):
     tree = treeswift.read_tree_newick(gtree_file)
+    tree.n_dup = 0
     for u in tree.traverse_postorder():
         if u.is_leaf():
             u.s = set([u.get_label()])
         else: 
             [left, right] = u.child_nodes()
             u.s =  left.s.union(right.s)
-            u.tag = 'D' if hasattr(u, 'edge_params') and 'D=Y' in u.edge_params else 'S'
+            if hasattr(u, 'edge_params') and 'D=Y' in u.edge_params:
+                u.tag = 'D' 
+                tree.n_dup += 1
+            else: 
+                u.tag = 'S'
+                #if hasattr(u, 'edge_params') and 'D=Y' in u.edge_params else 'S'
     return tree
 
 
@@ -279,14 +285,6 @@ def run_notung(gtree, stree_path, notung_path, dup_cost=1.5,  loss_cost=1):
     os.system(command)
 
     return parse_notung_gtree(notung_output)
-
-
-def get_notung_num_dups():
-    with open('tmp.tree.rooting.ntglog', 'r') as f:
-        for line in f:
-            s = line.split(' ')
-            if s[1] == 'Has:':
-                return int(s[2])
 
 
 def relabel(tree, delimiter=None):
@@ -341,7 +339,7 @@ def main(args):
             else: # Notung rooting
                 tree = run_notung(tree, args.species_tree, args.notung_path, args.dup_cost, args.loss_cost)
                 if args.dup_stats:
-                    n_dups = get_notung_num_dups()
+                    n_dups = tree.n_dup
 
             # Choose modes
             if args.no_decomp:
