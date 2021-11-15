@@ -337,7 +337,8 @@ def main(args):
                         print('Best root had score ', score, ' with ', tree.n_dup, ' non-terminal' if args.remove_in_paralogs else '',
                             ' duplications; there were ', len(ties), ' ties.\nOutgroup: {',','.join(outgroup[1]),'}', sep='')
             else: # Notung rooting
-                tree = run_notung(tree, args.species_tree, args.notung_path, args.dup_cost, args.loss_cost)
+                tree = run_notung(tree, args.species_tree[i] if len(args.species_tree) > 1 else args.species_tree[0], 
+                                  args.notung_path, args.dup_cost, args.loss_cost)
                 if args.dup_stats:
                     n_dups = tree.n_dup
 
@@ -394,7 +395,7 @@ if __name__ == "__main__":
                         help="Enables verbose output")
     parser.add_argument('-m', "--minimum", type=int, 
                         help="Minimum tree size outputted", default=4)
-    parser.add_argument('-s', '--species-tree', type=str, 
+    parser.add_argument('-s', '--species-tree', type=str, nargs="+",
                         help="Species tree for reconciliation rooting using Notung")
     parser.add_argument('--relabel', action='store_true', 
                         help="Overwrite current labels with species label in output (used with delimiter).")
