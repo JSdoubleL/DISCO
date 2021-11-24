@@ -259,8 +259,6 @@ def run_notung(gtree, stree_path, notung_path, dup_cost=1.5,  loss_cost=1):
 
     # confirm species tree is rooted.
     stree = treeswift.read_tree_newick(stree_path)
-    if stree.root.num_children() != 2:
-        raise Exception("Species tree must be rooted.")
 
     # clean species tree
     for u in stree.traverse_postorder(leaves=False):
