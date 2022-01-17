@@ -1,6 +1,7 @@
 import treeswift
 import argparse
 import os
+import re
 
 def unroot(tree):
     """
@@ -243,12 +244,15 @@ def parse_notung_gtree(gtree_file):
         else: 
             [left, right] = u.child_nodes()
             u.s =  left.s.union(right.s)
-            if hasattr(u, 'edge_params') and 'D=Y' in u.edge_params:
+            if (hasattr(u, 'edge_params') and 'D=Y' in u.edge_params) \
+                or ('D=Y' in u.get_label()): # treeswift sometimes puts newick comment in label instead of edge_params
                 u.tag = 'D' 
                 tree.n_dup += 1
             else: 
                 u.tag = 'S'
                 #if hasattr(u, 'edge_params') and 'D=Y' in u.edge_params else 'S'
+            if '[' in u.get_label(): # clean up labels by removing comments
+                u.set_label(re.sub('\[[^\]]*\]', '', u.label)) 
     return tree
 
 
@@ -351,7 +355,8 @@ def main(args):
                 if not args.no_decomp: unroot(t)
                 if args.relabel: relabel(t, args.delimiter)
                 t.suppress_unifurcations()
-                fo.write(t.newick() + '\n')
+                t_out = re.sub('\[[^\]]*\]', '', t.newick()) if args.relabel else t.newick()
+                fo.write(t_out + '\n')
             
             if args.verbose:
                 print('Decomposition strategy outputted', len(out), 'tree(s) with minimum size', args.minimum, '.\n')
