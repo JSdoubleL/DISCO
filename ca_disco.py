@@ -69,6 +69,8 @@ if __name__=="__main__":
                         help="Output tree list file")
     parser.add_argument("-a", "--alignment", type=fileList, required=True,
                         help="File containing paths to all alignment files in order the genes are found in the input newick file")
+    parser.add_argument('-l', '--loss-cost', type=float, default=1,
+                        help="Lost cost relative to duplication cost")
     parser.add_argument('-d', '--delimiter', type=str, default='_',
                         help="Delimiter separating taxon label from the rest of the leaf label.")
     parser.add_argument('-m', '--filter', type=int, default=4,
@@ -85,6 +87,7 @@ if __name__=="__main__":
     #N = args.seqln # seqlength
     ALNROOT = args.alignment # alignment directory, containing zero-padded files like 0001.phy ... 0030.phy that corresponds to the alignment of the genes
     INPATH = args.input # input multi-copy gene family trees path
+    LOSS_COST = args.loss_cost # loss cost relative to duplication cost
     #K = args.ngenes # maximum number of multi-copy trees to use from INPATH
     #DECOMPM = args.decomp # decomposition method, either "s" or "d" for sampling or decomposition
     LEAFSET = args.taxonset
@@ -98,7 +101,7 @@ if __name__=="__main__":
         aln = None
         for i, l in enumerate(fh, start=1):
             t = ts.read_tree_newick(l)
-            t.reroot(get_min_root(t, delim)[0])
+            t.reroot(get_min_root(t, LOSS_COST, delim)[0])
             tag(t, delim)
             out = list(filter(lambda x:x.num_nodes(internal=False) >= F, decompose(t)))
             #phy = os.path.join(ALNROOT, format_phy(i, len(str(num_genes))))

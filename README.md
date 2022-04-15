@@ -34,13 +34,14 @@ python3 disco.py -i <input_file> -o <ouput_file> -d <delimiter>
   - `-i`: Input newick tree file
 - **Optional**
   - `-o`: Output newick tree file
-  - `-d`: Delimiter separating species name from rest of leaf label. Default None.
-  - `-s`: Output only single tree (discarding smallest duplicate clades).
-  - `-m`: Minimum number of taxa required for tree to be outputted. Default 4.
-  - `-n`: No decomposition (outputs rooted gene trees).
+  - `-l`: Loss cost relative to duplication cost
+  - `-d`: Delimiter separating species name from rest of leaf label — Default None.
+  - `-s`: Output only single tree (discarding smallest duplicate clades)
+  - `-m`: Minimum number of taxa required for tree to be outputted — Default 4
+  - `-n`: No decomposition (outputs rooted gene trees)
   - `-v`: Enable verbose output
   - `-rp`: Remove in-paralogs before rooting/scoring (does not affect output, only reported score)
-  - `--outgroups`: Write outgroups (including ties) to txt file. (Might make program slower).
+  - `--outgroups`: Write outgroups (including ties) to txt file. (Might make program slower)
 
 #### Example
 
@@ -58,7 +59,7 @@ python3 tag_decomp.py -i example/gtrees-mult.trees
 python3 ca_disco.py -i <input_trees> -a <alignments_list> -t <taxa_list> -o <output> -d <delimiter> -m <n> 
 ```
 
-`disco.py` must be present in the same directory as `ca_disco.py` in order for it to run. Also, unlike `disco.py`, it is necessary for the input newick trees given to `ca_disco.py` to have unique leaf labels where the taxon name comes first and is separated from the rest of the name by some delimiter. 
+`disco.py` must be present in the same directory as `ca_disco.py` in order for it to run. Also, unlike `disco.py`, it is necessary for the input newick trees given to `ca_disco.py` to have unique leaf labels where the taxon name comes first and is separated from the rest of the name by some delimiter.
 
 #### Arguments
 
@@ -68,8 +69,8 @@ python3 ca_disco.py -i <input_trees> -a <alignments_list> -t <taxa_list> -o <out
   - `-t`: Text file containing taxa list (one taxon per line)
   - `-o`: Output concatenated alignment file
 - **Optional**
-  - `-m`: Minimum number of taxa required for tree to be outputted. Default 4.
-  - `-d`: Delimiter separating species name from rest of leaf label. Default _.
+  - `-m`: Minimum number of taxa required for tree to be outputted — Default 4
+  - `-d`: Delimiter separating species name from rest of leaf label — Default _
 
 #### Example
 

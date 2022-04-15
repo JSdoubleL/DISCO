@@ -71,7 +71,7 @@ def remove_in_paralogs(tree, delimiter=None):
     return num_paralogs
 
 
-def get_min_root(tree, delimiter=None, verbose=False):
+def get_min_root(tree, loss_cost=1, delimiter=None, verbose=False):
     """
     Calculates the root with the minimum score.
 
@@ -83,15 +83,15 @@ def get_min_root(tree, delimiter=None, verbose=False):
     Returns vertex corresponding to best edge to root tree on
     """
 
-    def score(total_set, set1, set2):
+    def score(total_set, set1, set2, loss_cost):
         if not len(set1.intersection(set2)) == 0:
                 if total_set == set1 or total_set == set2:
                     if set1 == set2:
                         return 1
                     else:
-                        return 2
+                        return 1 + loss_cost
                 else:
-                    return 3 
+                    return 1 + 2 * loss_cost
         return 0
 
     # check if tree is single leaf
@@ -115,7 +115,7 @@ def get_min_root(tree, delimiter=None, verbose=False):
 
             [left, right] = node.child_nodes()
             node.down = left.down.union(right.down)
-            node.d_score = left.d_score + right.d_score + score(node.down, left.down, right.down)
+            node.d_score = left.d_score + right.d_score + score(node.down, left.down, right.down, loss_cost)
 
     min_score, best_root, ties = float("inf"), None, []
 
@@ -136,7 +136,7 @@ def get_min_root(tree, delimiter=None, verbose=False):
     left.skip = True
     right.skip = True
 
-    min_score = left.u_score + left.d_score + score(left.up.union(left.down), left.up, left.down)
+    min_score = left.u_score + left.d_score + score(left.up.union(left.down), left.up, left.down, loss_cost)
     # we don't want to root at a leaf
     if not left.is_leaf():
         best_root = left 
@@ -157,9 +157,9 @@ def get_min_root(tree, delimiter=None, verbose=False):
                 other = parent.child_nodes()[1]
 
             node.up = parent.up.union(other.down)
-            node.u_score = parent.u_score + other.d_score + score(node.up, parent.up, other.down)
+            node.u_score = parent.u_score + other.d_score + score(node.up, parent.up, other.down, loss_cost)
 
-            total_score = node.u_score + node.d_score + score(node.up.union(node.down), node.up, node.down)
+            total_score = node.u_score + node.d_score + score(node.up.union(node.down), node.up, node.down, loss_cost)
 
             if total_score == min_score:
                 ties.append(node)
@@ -271,7 +271,7 @@ def main(args):
             if args.remove_in_paralogs:
                 num_paralogs = remove_in_paralogs(tree, args.delimiter)
 
-            root, score, ties = get_min_root(tree, args.delimiter)
+            root, score, ties = get_min_root(tree, args.loss_cost, args.delimiter)
             tree.reroot(root)
             tag(tree, args.delimiter)
 
@@ -329,6 +329,8 @@ if __name__ == "__main__":
                         help="Output tree list file")
     parser.add_argument('-d', "--delimiter", type=str, 
                         help="Delimiter separating species name from rest of leaf label")
+    parser.add_argument('-l', '--loss-cost', type=float, default=1,
+                        help="Lost cost relative to duplication cost")
     parser.add_argument('-n', '--no-decomp', action='store_true', 
                         help="Outputs rooted trees without decomposition")
     parser.add_argument('-s', '--single_tree', action='store_true',
