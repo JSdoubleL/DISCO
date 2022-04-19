@@ -264,7 +264,6 @@ def get_tree_clades(tree, delimiter=None):
     assert max(u.num_children() for u in tree.traverse_postorder()) <= 2, \
         "Input trees contain polytomies. Cannot extract clades" 
 
-    # TODO: make this work
     clades = set()
     for u in tree.traverse_postorder():
         if u.is_leaf():
@@ -306,7 +305,7 @@ def main(args):
     clades = None
     if args.threshold is not None:
         clades = {clade for gtree in treeswift.read_tree_newick(args.input) for clade in get_tree_clades(gtree, args.delimiter)}
-    print(len([c for c in clades if len(c) == 1]), len(clades))
+    #print(len([c for c in clades if len(c) == 1]), len(clades))
 
     with open(args.input, 'r') as fi, open(output, 'w') as fo:
         for i, line in enumerate(fi, 1):
@@ -314,6 +313,11 @@ def main(args):
 
             if args.remove_in_paralogs:
                 num_paralogs = remove_in_paralogs(tree, args.delimiter)
+
+            if args.threshold is not None:
+                tree.contract_low_support(args.threshold)
+            else:
+                tree.resolve_polytomies()
 
             root, score, ties = get_min_root(tree, args.loss_cost, args.delimiter)
             tree.reroot(root)
