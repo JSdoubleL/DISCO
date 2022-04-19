@@ -251,8 +251,46 @@ def trivial(newick_str):
     return True
 
 
+def get_tree_clades(tree, delimiter=None):
+    """
+    Lists all clades in a tree. Works with multi-copy trees.
+
+    Parameters
+    ----------
+    tree: treeswift tree
+
+    Returns set of clades (as frozenset objects) found in the input gene tree
+    """
+    assert max(u.num_children() for u in tree.traverse_postorder()) <= 2, \
+        "Input trees contain polytomies. Cannot extract clades" 
+
+    # TODO: make this work
+    clades = set()
+    for u in tree.traverse_postorder():
+        if u.is_leaf():
+            u.down = frozenset({u.get_label().split(delimiter)[0]})            
+        else:
+            [left, right] = u.child_nodes()
+            u.down = left.down.union(right.down)
+        clades.add(frozenset(u.down))
+
+    [left, right] = tree.root.child_nodes()
+    left.up, right.up = right.down, left.down
+
+    for u in tree.traverse_preorder():
+        if not u.is_root():
+            parent = u.get_parent()
+            if not parent.is_root(): 
+                [left, right] = parent.child_nodes()
+                u.up = parent.up.union(left.down) if u is right else parent.up.union(right.down)
+            clades.add(frozenset(u.up))
+        
+    return clades
+
+
 def main(args):
 
+    # set output file name
     if args.output is None:
         split = args.input.rsplit('.', 1)
         output = split[0] + '-decomp.' + split[1]
@@ -263,6 +301,12 @@ def main(args):
     outgroup_file_name = args.input.rsplit('.', 1)[0] + '_outgroups.txt'
     if args.outgroups:
         open(outgroup_file_name, 'w').close()
+
+    # create constraint set of clades from input gene trees
+    clades = None
+    if args.threshold is not None:
+        clades = {clade for gtree in treeswift.read_tree_newick(args.input) for clade in get_tree_clades(gtree, args.delimiter)}
+    print(len([c for c in clades if len(c) == 1]), len(clades))
 
     with open(args.input, 'r') as fi, open(output, 'w') as fo:
         for i, line in enumerate(fi, 1):
@@ -339,6 +383,8 @@ if __name__ == "__main__":
                         help="Enables verbose output")
     parser.add_argument('-m', "--minimum", type=int, 
                         help="Minimum tree size outputted", default=4)
+    parser.add_argument('-t', '--threshold', type=float, 
+                        help="Support threshold for collapsing gene tree branches")
     parser.add_argument("--outgroups", action='store_true',
                         help="Output outgroups to file (including ties)")
     parser.add_argument('-rp', "--remove_in_paralogs", action='store_true',
