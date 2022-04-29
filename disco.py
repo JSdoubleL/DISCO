@@ -1,5 +1,6 @@
 import treeswift
 import argparse
+from itertools import combinations
 
 def unroot(tree):
     """
@@ -22,6 +23,12 @@ def unroot(tree):
             left.contract()
     tree.is_rooted = False
     return tree
+
+
+def reroot_on_edge(tree, node):
+    if node.edge_length is None:
+        node.edge_length = 1
+    tree.reroot(node, length=node.edge_length / 2)
 
 
 def remove_in_paralogs(tree, delimiter=None):
@@ -71,7 +78,34 @@ def remove_in_paralogs(tree, delimiter=None):
     return num_paralogs
 
 
-def get_min_root(tree, loss_cost=1, delimiter=None, verbose=False):
+def preprocess_tree(tree, delimiter=None, rand_resolve=False):
+    max_degree = 0
+    if rand_resolve:
+        tree.resolve_polytomies()
+
+    if tree.root.num_children() != 2:
+        reroot_on_edge(tree, tree.root.child_nodes()[0])
+
+    for node in tree.traverse_postorder():
+        if node.is_leaf():
+            node.down = set([node.get_label().split(delimiter)[0]])
+        else:
+            node.down = set().union(*[u.down for u in node.child_nodes()])
+            if node.num_children() + 1 > max_degree:
+                max_degree = node.num_children() + 1
+
+    [left, right] = tree.root.child_nodes()
+    left.up, right.up = right.down, left.down
+
+    for node in tree.traverse_preorder():
+        parent = node.get_parent()
+        if parent is not None and parent is not tree.root:
+            node.up = parent.up.union(*[c.down for c in parent.child_nodes() if c is not node])
+
+    return max_degree
+
+
+def get_min_root_old(tree, loss_cost=1, delimiter=None, verbose=False):
     """
     Calculates the root with the minimum score.
 
@@ -84,6 +118,7 @@ def get_min_root(tree, loss_cost=1, delimiter=None, verbose=False):
     """
 
     def score(total_set, set1, set2, loss_cost):
+        """DL-score function"""
         if not len(set1.intersection(set2)) == 0:
                 if total_set == set1 or total_set == set2:
                     if set1 == set2:
@@ -96,7 +131,7 @@ def get_min_root(tree, loss_cost=1, delimiter=None, verbose=False):
 
     # check if tree is single leaf
     if tree.root.num_children() == 0:
-        tree.root.s = set([tree.root.get_label()])
+        #tree.root.s = set([tree.root.get_label()])
         return tree.root, 0, [] 
 
     # root tree if not rooted
@@ -174,6 +209,138 @@ def get_min_root(tree, loss_cost=1, delimiter=None, verbose=False):
         print('Best root had score', min_score, 'there were', len(ties), 'ties.')
         
     return best_root, min_score, ties
+
+def get_min_root(tree, loss_cost=1, constraint_clades=None, verbose=False):
+    """
+    Calculates the root with the minimum score.
+
+    Parameters
+    ----------
+    tree: treeswift tree
+    delimiter: delimiter separating species name from rest of leaf label
+
+    Returns vertex corresponding to best edge to root tree on
+    """
+
+    def score(total_set, set1, set2, loss_cost):
+        """DL-score function"""
+        if not len(set1.intersection(set2)) == 0:
+                if total_set == set1 or total_set == set2:
+                    if set1 == set2:
+                        return 1
+                    else:
+                        return 1 + loss_cost
+                else:
+                    return 1 + 2 * loss_cost
+        return 0
+
+    def score_polytomy(v, constraint_clades, loss_cost):
+        """Dynamic Programing polytomy scoring algorithm"""
+        neighbors = v.child_nodes() + [v.parent]
+        m = len(neighbors)
+        print(m)
+        assert m > 3, '{} is not a polytomy'.format(v.get_label())
+
+        C = {}
+        A_v = []
+        solutions = [frozenset(frozenset(neighbors) - {u}) for u in neighbors] # force all possible solutions
+        for i in range(1, m):
+            for A in combinations(neighbors, i):
+                temp = frozenset().union(*[u.down if u is not v.parent else u.up for u in A])         
+                # TODO: implement constraints correctly       
+                if True: #constraint_clades is None or temp in constraint_clades or frozenset(A) in solutions:
+                    A_v.append(frozenset(A))
+                    C[A_v[-1]] = temp
+
+        #A_v = [frozenset(A) for i in range(1, m) for A in combinations(neighbors, i) if frozenset().union(u.s for u in A) in constraint_clades]
+        v.M = {frozenset({u}):0 for u in neighbors}
+        v.backtrace = {}
+
+        for i, A in enumerate(A_v):
+            if i >= len(neighbors): 
+                min_score = float('inf')
+                for A_1 in A_v[:i]:
+                    A_2 = A - A_1
+                    if A_2 in A_v[:i] and A_1.union(A_2) == A:                                      
+                        cur_score = score(C[A], C[A_1], C[A_2], loss_cost) + v.M[A_1] + v.M[A_2] 
+                        if cur_score < min_score:
+                            min_score = cur_score
+                            v.backtrace[A] = A_1
+                v.M[A] = min_score
+        #print('debug', sum(v.M[A] for A in A_v))
+        return v.M[frozenset(neighbors) - {v.parent}] + sum(u.d_score for u in v.child_nodes())
+
+
+    def polytomy_child_score(v):
+        """Calculate the "up score" for the child of a polytomy"""
+        poly = v.parent
+        neighbors = poly.child_nodes() + [poly.parent]
+        assert poly.M[frozenset(neighbors) - {v}] != float('inf')
+        return poly.M[frozenset(neighbors) - {v}] + sum(u.d_score for u in poly.child_nodes() if u is not v) + poly.u_score
+
+
+    """Main "get_min_root" code"""
+    # check if tree is single leaf
+    if tree.root.num_children() == 0:
+        #tree.root.s = set([tree.root.get_label()])
+        return tree.root, 0, [] 
+
+    # root tree if not rooted
+    if tree.root.num_children() != 2:
+        tree.reroot(tree.root)
+
+    # Get down scores pass
+    for node in tree.traverse_postorder():
+        if node.is_leaf():
+            node.d_score = 0
+        elif node.num_children() == 2:
+            [left, right] = node.child_nodes()
+            node.d_score = left.d_score + right.d_score + score(node.down, left.down, right.down, loss_cost)
+        else:
+            node.d_score = score_polytomy(node, constraint_clades, loss_cost)
+    
+    [left, right] = tree.root.child_nodes()
+    left.u_score, right.u_score = right.d_score, left.d_score
+    min_score = left.u_score + left.d_score + score(left.up.union(left.down), left.up, left.down, loss_cost)
+    # we don't want to root at a leaf
+    if not left.is_leaf():
+        best_root = left 
+    elif not right.is_leaf():
+        best_root = right
+    # if both are leaves (i.e. two leaf tree), we want to keep the same rooting
+    else:
+        best_root = tree.root
+    ties = [best_root]
+
+    for node in tree.traverse_preorder():
+        parent = node.get_parent()
+        if parent is not None and parent is not tree.root:           
+            if parent.num_children() == 2: # no polytomies
+                # find the other child of parent
+                other = parent.child_nodes()[0] if parent.child_nodes()[0] != node  else parent.child_nodes()[1]
+                node.u_score = parent.u_score + other.d_score + score(node.up, parent.up, other.down, loss_cost)
+                total_score = node.u_score + node.d_score + score(node.up.union(node.down), node.up, node.down, loss_cost)                
+            else: # polytomies
+                min_total = min_score + 1
+                for v in parent.child_nodes():
+                    v.u_score = polytomy_child_score(v)
+                    total_score = v.u_score + v.d_score + score(v.up.union(v.down), v.up, v.down, loss_cost)
+                    if total_score < min_total:
+                        min_total = total_score
+                total_score = min_total
+
+            if total_score == min_score:
+                    ties.append(node)
+            if total_score < min_score:
+                min_score = total_score
+                best_root = node
+                ties = [node]
+
+    if verbose:            
+        print('Best root had score', min_score, 'there were', len(ties), 'ties.')
+        
+    return best_root, min_score, ties
+
 
 
 def tag(tree, delimiter=None):
@@ -277,11 +444,10 @@ def get_tree_clades(tree, delimiter=None):
     left.up, right.up = right.down, left.down
 
     for u in tree.traverse_preorder():
-        if not u.is_root():
-            parent = u.get_parent()
-            if not parent.is_root(): 
-                [left, right] = parent.child_nodes()
-                u.up = parent.up.union(left.down) if u is right else parent.up.union(right.down)
+        parent = u.get_parent()
+        if parent is not None and not parent.is_root():            
+            [left, right] = parent.child_nodes()
+            u.up = parent.up.union(left.down) if u is right else parent.up.union(right.down)
             clades.add(frozenset(u.up))
         
     return clades
@@ -302,11 +468,16 @@ def main(args):
         open(outgroup_file_name, 'w').close()
 
     # create constraint set of clades from input gene trees
-    clades = None
-    if args.threshold is not None:
-        clades = {clade for gtree in treeswift.read_tree_newick(args.input) for clade in get_tree_clades(gtree, args.delimiter)}
-    #print(len([c for c in clades if len(c) == 1]), len(clades))
+    clades = set()
+    if not args.classic:
+        # if the input trees are not fully resolved, randomly resolve them to get constraints (to ensure a solution will exist)
+        for gtree in treeswift.read_tree_newick(args.input):
+            gtree.resolve_polytomies()
+            clades.update(get_tree_clades(gtree, args.delimiter))
+        # read all gene trees, extract all clades from gene trees, then sort clades from smallest to largest
+        #clades = sorted({clade for gtree in treeswift.read_tree_newick(args.input) for clade in get_tree_clades(gtree, args.delimiter)}, key=len)
 
+    print('constraint set', len(clades))
     with open(args.input, 'r') as fi, open(output, 'w') as fo:
         for i, line in enumerate(fi, 1):
             tree = treeswift.read_tree_newick(line)
@@ -316,12 +487,20 @@ def main(args):
 
             if args.threshold is not None:
                 tree.contract_low_support(args.threshold)
-            else:
-                tree.resolve_polytomies()
 
-            root, score, ties = get_min_root(tree, args.loss_cost, args.delimiter)
-            tree.reroot(root)
-            tag(tree, args.delimiter)
+            if args.classic:
+                tree.resolve_polytomies()
+                root, score, ties = get_min_root_old(tree, args.loss_cost, args.delimiter)
+                tree.reroot(root)
+                tag(tree, args.delimiter)
+            else:
+                #print(tree.newick())
+                max_degree = preprocess_tree(tree, args.delimiter, args.random)
+                #print('tree', i, 'max', max_degree)
+                root, score, ties = get_min_root(tree, args.loss_cost, clades if len(clades) != 0 else None)
+                tree.reroot(root)                
+                # TODO: resolve polytomies
+                # tag(tree, args.delimiter)
 
             if args.verbose:
                 print('Tree ', i, ': Tree has ', len(tree.root.s), ' species.', sep='')
@@ -389,9 +568,13 @@ if __name__ == "__main__":
                         help="Minimum tree size outputted", default=4)
     parser.add_argument('-t', '--threshold', type=float, 
                         help="Support threshold for collapsing gene tree branches")
+    parser.add_argument('-r', "--random", action='store_true',
+                        help="Resolve polytomies randomly (faster)")
     parser.add_argument("--outgroups", action='store_true',
                         help="Output outgroups to file (including ties)")
     parser.add_argument('-rp', "--remove_in_paralogs", action='store_true',
                         help="Remove in-paralogs before rooting/scoring tree.")
+    parser.add_argument('--classic', action='store_true', 
+                        help="Use the old version of DISCO")
 
     main(parser.parse_args())
