@@ -512,7 +512,9 @@ def main(args):
         # read all gene trees, extract all clades from gene trees, then sort clades from smallest to largest
         #clades = sorted({clade for gtree in treeswift.read_tree_newick(args.input) for clade in get_tree_clades(gtree, args.delimiter)}, key=len)
 
-    print('constraint set', len(clades))
+    if args.verbose and not args.classic:
+        print('constraint set', len(clades))
+
     with open(args.input, 'r') as fi, open(output, 'w') as fo:
         for i, line in enumerate(fi, 1):
             tree = treeswift.read_tree_newick(line)
@@ -542,7 +544,7 @@ def main(args):
                 assert max(u.num_children() for u in tree.traverse_postorder()) <= 2
 
             tag(tree, args.delimiter)
-            print('tree', i, ':', tree.n_dup)
+            #print('tree', i, ':', tree.n_dup)
 
             if args.verbose:
                 print('Tree ', i, ': Tree has ', len(tree.root.s), ' species.', sep='')
@@ -570,7 +572,7 @@ def main(args):
                 fo.write(t.newick() + '\n')
             
             if args.verbose:
-                print('Decomposition strategy outputted', len(out), 'tree(s) with minimum size', args.minimum, '.\n')
+                print('Decomposition strategy outputted ', len(out), ' tree(s) with minimum size ', args.minimum, '.\n', sep='')
 
             # output outgroups
             if args.outgroups:
