@@ -1,3 +1,4 @@
+from collections import deque
 import treeswift
 import argparse
 from itertools import combinations
@@ -82,6 +83,7 @@ def preprocess_tree(tree, delimiter=None, rand_resolve=False):
     max_degree = 0
     if rand_resolve:
         tree.resolve_polytomies()
+    tree.suppress_unifurcations()
 
     if tree.root.num_children() != 2:
         reroot_on_edge(tree, tree.root.child_nodes()[0])
@@ -238,7 +240,7 @@ def get_min_root(tree, loss_cost=1, constraint_clades=None, verbose=False):
         """Dynamic Programing polytomy scoring algorithm"""
         neighbors = v.child_nodes() + [v.parent]
         m = len(neighbors)
-        print(m)
+        #print(m)
         assert m > 3, '{} is not a polytomy'.format(v.get_label())
 
         C = {}
@@ -287,7 +289,7 @@ def get_min_root(tree, loss_cost=1, constraint_clades=None, verbose=False):
 
     # root tree if not rooted
     if tree.root.num_children() != 2:
-        tree.reroot(tree.root)
+        reroot_on_edge(tree, tree.root.get_children[0])
 
     # Get down scores pass
     for node in tree.traverse_postorder():
@@ -342,6 +344,38 @@ def get_min_root(tree, loss_cost=1, constraint_clades=None, verbose=False):
     return best_root, min_score, ties
 
 
+def backtrace_polytomies(tree):
+    def backtrace(polytomy):
+        q = deque(); q.append(polytomy)
+        while len(q) != 0:
+            v = q.popleft()
+            #neighbors = v.child_nodes() + [v.parent]
+            A_1 = polytomy.backtrace[frozenset(v.child_nodes())]
+            A_2 = frozenset(v.child_nodes()) - A_1
+            n1, n2 = treeswift.Node(), treeswift.Node()
+            if len(A_1) == 1: 
+                n1, = A_1 # comma unpacks the first (and only) element
+            else:
+                n1.children = list(A_1)
+            if len(A_2) == 1: 
+                n2, = A_2
+            else:
+                n2.children = list(A_2)
+            if len(A_1) > 2:
+                q.append(n1)
+            if len(A_2) > 2:
+                q.append(n2)
+            v.children = []
+            v.add_child(n1)
+            v.add_child(n2)
+
+    for u in tree.traverse_preorder():
+        if u.num_children() > 2:
+            if not hasattr(u, 'backtrace'):
+                t = tree.extract_subtree(u.parent) 
+                print(t.newick())
+            backtrace(u)
+
 
 def tag(tree, delimiter=None):
     """
@@ -352,6 +386,7 @@ def tag(tree, delimiter=None):
     tree: treeswift tree
     delimiter: delimiter separating species name from rest of leaf label
     """
+    #assert min(u.num_children() for u in tree.traverse_postorder()) == 2
     tree.suppress_unifurcations()
     tree.resolve_polytomies()
     for node in tree.traverse_postorder():
@@ -491,16 +526,23 @@ def main(args):
             if args.classic:
                 tree.resolve_polytomies()
                 root, score, ties = get_min_root_old(tree, args.loss_cost, args.delimiter)
-                tree.reroot(root)
-                tag(tree, args.delimiter)
+                reroot_on_edge(tree, root)
             else:
                 #print(tree.newick())
                 max_degree = preprocess_tree(tree, args.delimiter, args.random)
                 #print('tree', i, 'max', max_degree)
                 root, score, ties = get_min_root(tree, args.loss_cost, clades if len(clades) != 0 else None)
-                tree.reroot(root)                
-                # TODO: resolve polytomies
-                # tag(tree, args.delimiter)
+                
+
+                assert tree.root.num_children() == 2
+                #assert sum(1 for u in tree.traverse_inorder() if u.num_children() != 2 and not hasattr(u, 'backtrace')) == 0
+                reroot_on_edge(tree, root)
+                backtrace_polytomies(tree)
+
+                assert max(u.num_children() for u in tree.traverse_postorder()) <= 2
+
+            tag(tree, args.delimiter)
+            print('tree', i, ':', tree.n_dup)
 
             if args.verbose:
                 print('Tree ', i, ': Tree has ', len(tree.root.s), ' species.', sep='')
