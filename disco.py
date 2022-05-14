@@ -133,7 +133,6 @@ def get_min_root_old(tree, loss_cost=1, delimiter=None, verbose=False):
 
     # check if tree is single leaf
     if tree.root.num_children() == 0:
-        #tree.root.s = set([tree.root.get_label()])
         return tree.root, 0, [] 
 
     # root tree if not rooted
@@ -212,6 +211,7 @@ def get_min_root_old(tree, loss_cost=1, delimiter=None, verbose=False):
         
     return best_root, min_score, ties
 
+
 def get_min_root(tree, loss_cost=1, constraint_clades=None, verbose=False):
     """
     Calculates the root with the minimum score.
@@ -269,7 +269,6 @@ def get_min_root(tree, loss_cost=1, constraint_clades=None, verbose=False):
                             min_score = cur_score
                             v.backtrace[A] = A_1
                 v.M[A] = min_score
-        #print('debug', sum(v.M[A] for A in A_v))
         return v.M[frozenset(neighbors) - {v.parent}] + sum(u.d_score for u in v.child_nodes())
 
 
@@ -284,7 +283,6 @@ def get_min_root(tree, loss_cost=1, constraint_clades=None, verbose=False):
     """Main "get_min_root" code"""
     # check if tree is single leaf
     if tree.root.num_children() == 0:
-        #tree.root.s = set([tree.root.get_label()])
         return tree.root, 0, [] 
 
     # root tree if not rooted
@@ -349,7 +347,6 @@ def backtrace_polytomies(tree):
         q = deque(); q.append(polytomy)
         while len(q) != 0:
             v = q.popleft()
-            #neighbors = v.child_nodes() + [v.parent]
             A_1 = polytomy.backtrace[frozenset(v.child_nodes())]
             A_2 = frozenset(v.child_nodes()) - A_1
             n1, n2 = treeswift.Node(), treeswift.Node()
@@ -434,6 +431,7 @@ def decompose(tree, single_tree=False):
     out.append(tree)
     return out
 
+
 def trivial(newick_str):
     """
     Determines if a newick string represents a trivial tree (tree containing no quartets).
@@ -488,8 +486,25 @@ def get_tree_clades(tree, delimiter=None):
     return clades
 
 
-def main(args):
+def contract_low_support_with_max(tree, threshold, max_degree):
+    low_support = []
+    for u in tree.traverse_postorder(leaves=False):
+        try:
+            if float(str(u)) < threshold:
+                low_support.append(u)
+        except:
+            pass
+    low_support.sort(lambda x:float(str(x)))
+    for u in low_support:
+        if u.parent is not None and u.parent.num_children() < max_degree:
+            u.contract()
 
+
+def max_degree(tree):
+    return max(u.num_children() + 1 if not u.is_root() else u.num_children() for u in tree.traverse_postorder())
+
+
+def main(args):
     # set output file name
     if args.output is None:
         split = args.input.rsplit('.', 1)
@@ -509,8 +524,6 @@ def main(args):
         for gtree in treeswift.read_tree_newick(args.input):
             gtree.resolve_polytomies()
             clades.update(get_tree_clades(gtree, args.delimiter))
-        # read all gene trees, extract all clades from gene trees, then sort clades from smallest to largest
-        #clades = sorted({clade for gtree in treeswift.read_tree_newick(args.input) for clade in get_tree_clades(gtree, args.delimiter)}, key=len)
 
     if args.verbose and not args.classic:
         print('constraint set', len(clades))
@@ -522,29 +535,24 @@ def main(args):
             if args.remove_in_paralogs:
                 num_paralogs = remove_in_paralogs(tree, args.delimiter)
 
+            if max_degree(tree) > args.max_degree:
+                tree.resolve_polytomies() # will set support of new branches to 0
+
             if args.threshold is not None:
-                tree.contract_low_support(args.threshold)
+                contract_low_support_with_max(tree, args.threshold, args.max_degree)
 
             if args.classic:
                 tree.resolve_polytomies()
                 root, score, ties = get_min_root_old(tree, args.loss_cost, args.delimiter)
                 reroot_on_edge(tree, root)
             else:
-                #print(tree.newick())
-                max_degree = preprocess_tree(tree, args.delimiter, args.random)
-                #print('tree', i, 'max', max_degree)
-                root, score, ties = get_min_root(tree, args.loss_cost, clades if len(clades) != 0 else None)
-                
+                preprocess_tree(tree, args.delimiter, args.random)
+                root, score, ties = get_min_root(tree, args.loss_cost, clades if len(clades) != 0 else None)                
 
-                assert tree.root.num_children() == 2
-                #assert sum(1 for u in tree.traverse_inorder() if u.num_children() != 2 and not hasattr(u, 'backtrace')) == 0
                 reroot_on_edge(tree, root)
                 backtrace_polytomies(tree)
 
-                assert max(u.num_children() for u in tree.traverse_postorder()) <= 2
-
             tag(tree, args.delimiter)
-            #print('tree', i, ':', tree.n_dup)
 
             if args.verbose:
                 print('Tree ', i, ': Tree has ', len(tree.root.s), ' species.', sep='')
@@ -608,12 +616,14 @@ if __name__ == "__main__":
                         help="Only output single large tree")
     parser.add_argument('-v', '--verbose', action='store_true',
                         help="Enables verbose output")
-    parser.add_argument('-m', "--minimum", type=int, 
-                        help="Minimum tree size outputted", default=4)
+    parser.add_argument('-m', '--max-degree', type=int, default=10,
+                        help="Max allowed polytomy degree")
     parser.add_argument('-t', '--threshold', type=float, 
                         help="Support threshold for collapsing gene tree branches")
     parser.add_argument('-r', "--random", action='store_true',
                         help="Resolve polytomies randomly (faster)")
+    parser.add_argument("--minimum", type=int, 
+                        help="Minimum tree size outputted", default=4)
     parser.add_argument("--outgroups", action='store_true',
                         help="Output outgroups to file (including ties)")
     parser.add_argument('-rp', "--remove_in_paralogs", action='store_true',
