@@ -382,7 +382,6 @@ def backtrace_polytomies(tree):
                 t = tree.extract_subtree(u.parent) 
                 print(t.newick())
             backtrace(u)
-    print(len([u.child_nodes()[0] for u in tree.traverse_postorder() if u.num_children() == 1]))
 
 
 def tag(tree, delimiter=None):
@@ -515,7 +514,7 @@ def contract_low_support_with_max(tree, threshold, max_degree):
             pass
     low_support.sort(key=lambda x:float(str(x)))
     for u in low_support:
-        if u.parent is not None and u.parent.num_children() < max_degree:
+        if u.parent is not None and u.parent.num_children() + u.num_children() <= max_degree:
             u.contract()
 
 
@@ -565,7 +564,7 @@ def main(args):
                 root, score, ties = get_min_root_old(tree, args.loss_cost, args.delimiter)
                 reroot_on_edge(tree, root)
             else:
-                preprocess_tree(tree, args.delimiter, args.random)
+                max_poly = preprocess_tree(tree, args.delimiter, args.random)
                 root, score, ties = get_min_root(tree, args.loss_cost, clades if len(clades) != 0 else None)                
 
                 reroot_on_edge(tree, root)
@@ -576,6 +575,8 @@ def main(args):
 
             if args.verbose:
                 print('Tree ', i, ': Tree has ', len(tree.root.s), ' species.', sep='')
+                if not args.classic:
+                    print('Max polytomy size is', max_poly)
                 if args.remove_in_paralogs:
                     print(num_paralogs, 'in-paralogs removed prior to rooting/scoring.')  
                 if len(tree.root.s) < 2:
@@ -596,7 +597,7 @@ def main(args):
             # Output trees
             for t in out:
                 if not args.no_decomp: unroot(t)
-                if not args.keep_original_label: relabel(t)
+                if not args.keep_original_labels: relabel(t)
                 t.suppress_unifurcations()
                 fo.write(t.newick() + '\n')
             
