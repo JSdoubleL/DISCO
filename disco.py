@@ -497,6 +497,14 @@ def get_tree_clades(tree, delimiter=None):
     return clades
 
 
+def relabel(tree, delimiter=None):
+    if delimiter is None:
+        return tree
+    for l in tree.traverse_postorder(internal=False):
+        l.set_label(l.get_label().split(delimiter)[0])
+    return tree
+
+
 def contract_low_support_with_max(tree, threshold, max_degree):
     low_support = []
     for u in tree.traverse_postorder(leaves=False):
@@ -588,6 +596,7 @@ def main(args):
             # Output trees
             for t in out:
                 if not args.no_decomp: unroot(t)
+                if not args.keep_original_label: relabel(t)
                 t.suppress_unifurcations()
                 fo.write(t.newick() + '\n')
             
@@ -636,6 +645,8 @@ if __name__ == "__main__":
                         help="Resolve polytomies randomly (faster)")
     parser.add_argument("--minimum", type=int, 
                         help="Minimum tree size outputted", default=4)
+    parser.add_argument('-k', "--keep-original-labels", action='store_true', 
+                        help="Keep original leaf labels instead of relabling them with their species labels (only relevent with delimiter)")
     parser.add_argument("--outgroups", action='store_true',
                         help="Output outgroups to file (including ties)")
     parser.add_argument('-rp', "--remove_in_paralogs", action='store_true',
