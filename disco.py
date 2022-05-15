@@ -27,10 +27,10 @@ def unroot(tree):
 
 
 def reroot_on_edge(tree, node):
-    if node.edge_length is None:
+    if not hasattr(node, 'edge_length') or node.edge_length == 0:
         node.edge_length = 1
     tree.reroot(node, length=node.edge_length / 2)
-
+    
 
 def remove_in_paralogs(tree, delimiter=None):
     """
@@ -88,6 +88,8 @@ def preprocess_tree(tree, delimiter=None, rand_resolve=False):
     if tree.root.num_children() != 2:
         reroot_on_edge(tree, tree.root.child_nodes()[0])
 
+    assert tree.root.num_children() == 2
+
     for node in tree.traverse_postorder():
         if node.is_leaf():
             node.down = set([node.get_label().split(delimiter)[0]])
@@ -96,6 +98,7 @@ def preprocess_tree(tree, delimiter=None, rand_resolve=False):
             if node.num_children() + 1 > max_degree:
                 max_degree = node.num_children() + 1
 
+    assert tree.root.num_children() == 2
     [left, right] = tree.root.child_nodes()
     left.up, right.up = right.down, left.down
 
@@ -238,6 +241,9 @@ def get_min_root(tree, loss_cost=1, constraint_clades=None, verbose=False):
 
     def score_polytomy(v, constraint_clades, loss_cost):
         """Dynamic Programing polytomy scoring algorithm"""
+        if v.parent.is_root(): # no real value for 'up' at the root; the correct value in this case should be the other side of tree
+            v.parent.up = v.child_nodes()[0].down if v.child_nodes()[1] is v else v.child_nodes()[1].down
+
         neighbors = v.child_nodes() + [v.parent]
         m = len(neighbors)
         #print(m)
@@ -245,7 +251,7 @@ def get_min_root(tree, loss_cost=1, constraint_clades=None, verbose=False):
 
         C = {}
         A_v = []
-        solutions = [frozenset(frozenset(neighbors) - {u}) for u in neighbors] # force all possible solutions
+        #solutions = [frozenset(frozenset(neighbors) - {u}) for u in neighbors] # force all possible solutions
         for i in range(1, m):
             for A in combinations(neighbors, i):
                 temp = frozenset().union(*[u.down if u is not v.parent else u.up for u in A])         
@@ -285,9 +291,10 @@ def get_min_root(tree, loss_cost=1, constraint_clades=None, verbose=False):
     if tree.root.num_children() == 0:
         return tree.root, 0, [] 
 
+    assert tree.root.num_children() == 2
     # root tree if not rooted
-    if tree.root.num_children() != 2:
-        reroot_on_edge(tree, tree.root.get_children[0])
+    #if tree.root.num_children() != 2:
+    #    reroot_on_edge(tree, tree.root.get_children[0])
 
     # Get down scores pass
     for node in tree.traverse_postorder():
@@ -353,11 +360,13 @@ def backtrace_polytomies(tree):
             if len(A_1) == 1: 
                 n1, = A_1 # comma unpacks the first (and only) element
             else:
-                n1.children = list(A_1)
+                for a in A_1:
+                    n1.add_child(a)
             if len(A_2) == 1: 
                 n2, = A_2
             else:
-                n2.children = list(A_2)
+                for a in A_2:
+                    n2.add_child(a)
             if len(A_1) > 2:
                 q.append(n1)
             if len(A_2) > 2:
@@ -365,6 +374,7 @@ def backtrace_polytomies(tree):
             v.children = []
             v.add_child(n1)
             v.add_child(n2)
+        #assert all(u == u.parent.child_nodes()[0] for u in tree.traverse_postorder() if u.num_children() == 1)
 
     for u in tree.traverse_preorder():
         if u.num_children() > 2:
@@ -372,6 +382,7 @@ def backtrace_polytomies(tree):
                 t = tree.extract_subtree(u.parent) 
                 print(t.newick())
             backtrace(u)
+    print(len([u.child_nodes()[0] for u in tree.traverse_postorder() if u.num_children() == 1]))
 
 
 def tag(tree, delimiter=None):
@@ -383,9 +394,9 @@ def tag(tree, delimiter=None):
     tree: treeswift tree
     delimiter: delimiter separating species name from rest of leaf label
     """
-    #assert min(u.num_children() for u in tree.traverse_postorder()) == 2
-    tree.suppress_unifurcations()
-    tree.resolve_polytomies()
+    assert all([u.num_children() == 2 for u in tree.traverse_postorder(leaves=False)])
+    #tree.suppress_unifurcations()
+    #tree.resolve_polytomies()
     for node in tree.traverse_postorder():
         if node.is_leaf():
             node.s = set([node.get_label().split(delimiter)[0]])
@@ -494,7 +505,7 @@ def contract_low_support_with_max(tree, threshold, max_degree):
                 low_support.append(u)
         except:
             pass
-    low_support.sort(lambda x:float(str(x)))
+    low_support.sort(key=lambda x:float(str(x)))
     for u in low_support:
         if u.parent is not None and u.parent.num_children() < max_degree:
             u.contract()
@@ -551,6 +562,7 @@ def main(args):
 
                 reroot_on_edge(tree, root)
                 backtrace_polytomies(tree)
+                tree.suppress_unifurcations() # remove previous root node
 
             tag(tree, args.delimiter)
 
