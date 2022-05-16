@@ -563,6 +563,8 @@ def main(args):
                 tree.resolve_polytomies()
                 root, score, ties = get_min_root_old(tree, args.loss_cost, args.delimiter)
                 reroot_on_edge(tree, root)
+                tree.suppress_unifurcations()
+                tree.resolve_polytomies()
             else:
                 max_poly = preprocess_tree(tree, args.delimiter, args.random)
                 root, score, ties = get_min_root(tree, args.loss_cost, clades if len(clades) != 0 else None)                
