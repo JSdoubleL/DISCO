@@ -597,7 +597,7 @@ def main(args):
             # Output trees
             for t in out:
                 if not args.no_decomp: unroot(t)
-                if not args.keep_original_labels: relabel(t)
+                if not args.keep_original_labels: relabel(t, args.delimiter)
                 t.suppress_unifurcations()
                 fo.write(t.newick() + '\n')
             
