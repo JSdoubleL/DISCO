@@ -25,7 +25,7 @@ def unroot(tree):
 
 
 def reroot_on_edge(tree, node):
-    if not hasattr(node, 'edge_length') or node.edge_length == 0:
+    if not hasattr(node, 'edge_length') or node.edge_length is None or node.edge_length == 0:
         node.edge_length = 1
     tree.reroot(node, length=node.edge_length / 2)
 
