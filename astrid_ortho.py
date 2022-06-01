@@ -12,7 +12,7 @@ def main(args):
         for line in f:
             tree = treeswift.read_tree_newick(line)
             best_root, *_ = disco.get_min_root(tree, args.delimiter)
-            tree.reroot(best_root)
+            disco.reroot_on_edge(tree, best_root)
             disco.tag(tree, args.delimiter)
             result += OrthoDistMat(tree, args.delimiter)
     with open(output_name, "w") as f:
