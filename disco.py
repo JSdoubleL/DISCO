@@ -43,7 +43,7 @@ def remove_in_paralogs(tree, delimiter=None):
     """
     # root tree if not rooted
     if tree.root.num_children() != 2:
-        reroot_on_edge(tree, tree.root.child_nodes[0])
+        reroot_on_edge(tree, tree.root.child_nodes()[0])
         #tree.reroot(tree.root)
 
     num_paralogs = 0
@@ -108,7 +108,7 @@ def get_min_root(tree, delimiter=None, verbose=False):
 
     # root tree if not rooted
     if tree.root.num_children() != 2:
-        reroot_on_edge(tree, tree.root.child_nodes[0])
+        reroot_on_edge(tree, tree.root.child_nodes()[0])
     tree.resolve_polytomies()
 
     # Get down scores pass
