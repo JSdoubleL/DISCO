@@ -24,6 +24,12 @@ def unroot(tree):
     return tree
 
 
+def reroot_on_edge(tree, node):
+    if not hasattr(node, 'edge_length') or node.edge_length == 0:
+        node.edge_length = 1
+    tree.reroot(node, length=node.edge_length / 2)
+
+
 def remove_in_paralogs(tree, delimiter=None):
     """
     Removes in-paralogs from unrooted tree.
@@ -37,7 +43,8 @@ def remove_in_paralogs(tree, delimiter=None):
     """
     # root tree if not rooted
     if tree.root.num_children() != 2:
-        tree.reroot(tree.root)
+        reroot_on_edge(tree, tree.root.child_nodes[0])
+        #tree.reroot(tree.root)
 
     num_paralogs = 0
     for node in tree.traverse_postorder():
@@ -101,7 +108,7 @@ def get_min_root(tree, delimiter=None, verbose=False):
 
     # root tree if not rooted
     if tree.root.num_children() != 2:
-        tree.reroot(tree.root)
+        reroot_on_edge(tree, tree.root.child_nodes[0])
     tree.resolve_polytomies()
 
     # Get down scores pass
@@ -272,7 +279,7 @@ def main(args):
                 num_paralogs = remove_in_paralogs(tree, args.delimiter)
 
             root, score, ties = get_min_root(tree, args.delimiter)
-            tree.reroot(root)
+            reroot_on_edge(tree, root)
             tag(tree, args.delimiter)
 
             if args.verbose:
@@ -307,13 +314,13 @@ def main(args):
             if args.outgroups:
                 og_tree = treeswift.read_tree_newick(line)
                 root, score, ties = get_min_root(og_tree, args.delimiter)
-                og_tree.reroot(root)
+                reroot_on_edge(og_tree, root)
                 tag(og_tree, args.delimiter)
                 if len(og_tree.root.s) >= 2 and og_tree.n_dup >= 1:
                     with open(outgroup_file_name, 'a') as outgfile:
                         outgfile.write('Tree ' + str(i) + ':\n')
                         for t in ties:
-                            og_tree.reroot(t)
+                            reroot_on_edge(og_tree, t)
                             tag(og_tree, args.delimiter)
                             outgroup = min((len(child.s), child.s) for child in og_tree.root.child_nodes())
                             outgfile.write('{' + ','.join(outgroup[1]) + '}\n')
