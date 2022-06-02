@@ -259,6 +259,14 @@ def trivial(newick_str):
     return True
 
 
+def relabel(tree, delimiter=None):
+    if delimiter is None:
+        return tree
+    for l in tree.traverse_postorder(internal=False):
+        l.set_label(l.get_label().split(delimiter)[0])
+    return tree
+
+
 def main(args):
 
     if args.output is None:
@@ -305,6 +313,7 @@ def main(args):
             # Output trees
             for t in out:
                 if not args.no_decomp: unroot(t)
+                if not args.keep_original_labels: relabel(t, args.delimiter)
                 t.suppress_unifurcations()
                 fo.write(t.newick() + '\n')
             
@@ -345,6 +354,8 @@ if __name__ == "__main__":
                         help="Enables verbose output")
     parser.add_argument('-m', "--minimum", type=int, 
                         help="Minimum tree size outputted", default=4)
+    parser.add_argument('-k', "--keep-original-labels", action='store_true', 
+                        help="Keep original leaf labels instead of relabling them with their species labels (only relevent with delimiter)")
     parser.add_argument("--outgroups", action='store_true',
                         help="Output outgroups to file (including ties)")
     parser.add_argument('-rp', "--remove_in_paralogs", action='store_true',
