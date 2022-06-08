@@ -39,6 +39,7 @@ python3 disco.py -i <input_file> -o <ouput_file> -d <delimiter>
   - `-m`: Minimum number of taxa required for tree to be outputted. Default 4.
   - `-n`: No decomposition (outputs rooted gene trees).
   - `-v`: Enable verbose output
+  - `-k`: Keep original leaf labels (otherwise leaves are relabeled with species label; only relevant with delimiter option)
   - `-rp`: Remove in-paralogs before rooting/scoring (does not affect output, only reported score)
   - `--outgroups`: Write outgroups (including ties) to txt file. (Might make program slower).
 
