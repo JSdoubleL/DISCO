@@ -1,3 +1,4 @@
+from copy import copy
 import treeswift
 import argparse
 
@@ -199,20 +200,25 @@ def tag(tree, delimiter=None):
         if node.is_leaf():
             node.s = set([node.get_label().split(delimiter)[0]])
             node.n_dup = 0
+            node.n_p_dup = 0
         else:
             [left, right] = node.child_nodes()
 
             node.s = left.s.union(right.s)
             node.n_dup = left.n_dup + right.n_dup
+            node.n_p_dup = left.n_p_dup + right.n_p_dup
             if len(left.s.intersection(right.s)) == 0:
                 node.tag = 'S'
             else: 
                 node.tag = 'D'
                 node.n_dup += 1
+                if len(left.s.intersection(right.s)) == len(left.s):
+                    node.n_p_dup += 1
     tree.n_dup = tree.root.n_dup
+    tree.n_p_dup = tree.root.n_p_dup
 
 
-def decompose(tree, single_tree=False):
+def decompose(tree, boosted=False, single_tree=False):
     """
     Decomposes a tagged tree, by separating clades at duplication vetices
 
@@ -225,20 +231,64 @@ def decompose(tree, single_tree=False):
 
     Returns result of the decomposition as a list of trees
     """
+    assert not boosted or not single_tree, "Cannot boost if single tree option is selected"
+
+    def reconstruct_tree(original_root):
+        for node in original_root.traverse_preorder():
+            while len(node.deleted) != 0:
+                node.add_child(node.deleted.pop())
+            while len(node.added) != 0:
+                node.remove_child(node.added.pop())
+        tree.root = original_root
+
+    def boost(tree, subtree):
+        for node in tree.traverse_postorder(leaves=False):
+            if node is subtree.lca: # find LCA of subtree
+                parent = node.parent
+                parent.remove_child(node); parent.deleted.append(node)
+                parent.add_child(subtree.root); parent.added.append(subtree.root) # replace original tree's subtree with DISCO subtree
+                # delete other subtree from all duplication vertices along path from LCA to root
+                prev, cur = node, parent
+                while cur is not None:
+                    if cur.tag == "D":
+                        [left, right] = cur.child_nodes()
+                        delete = left if left is not prev else right
+                        cur.remove_child(delete); cur.deleted.append(delete)
+                    prev, cur = cur, cur.parent                   
+                break
+        return decompose(tree, False, True)[0] # do DISCO decomposition on remaining tree
+
     out = []
-    root = tree.root
-    for node in tree.traverse_postorder(leaves=False):
-        if node.tag == 'D':
+    if boosted: 
+        og_root = tree.root
+    for u in tree.traverse_postorder():
+        if not hasattr(u, 'deleted') and not hasattr(u, 'added'):
+            u.deleted = []; u.added = []
+
+    for node in tree.traverse_postorder():
+        #assert (node.num_children() + len(node.deleted) - len(node.added) == 2) or node.label is not None
+        if hasattr(node, 'tag') and node.tag == 'D' and node.num_children() > 1:
             # trim off smallest subtree (i.e. subtree with least species)
             [left, right] = node.child_nodes()
             delete = left if len(left.s) < len(right.s) else right
             if not single_tree:
-                out.append(tree.extract_subtree(delete))
+                out.append(treeswift.read_tree_newick(tree.extract_subtree(delete).newick())) # copy tree and add to list
                 out[-1].suppress_unifurcations()
-            node.remove_child(delete)
-    tree.suppress_unifurcations() # all the duplication nodes will be unifurcations
-    out.append(tree)
+                out[-1].lca = delete
+            node.remove_child(delete); node.deleted.append(delete)
+
+    final_tree = treeswift.read_tree_newick(tree.newick())
+    if boosted:
+        boosted_out = []        
+        for subtree in out:
+            reconstruct_tree(og_root)
+            boosted_out.append(boost(tree, subtree))
+        out = boosted_out
+
+    final_tree.suppress_unifurcations() # all the duplication nodes will be unifurcations
+    out.append(final_tree)
     return out
+
 
 def trivial(newick_str):
     """
@@ -302,13 +352,14 @@ def main(args):
                 else:
                     outgroup = min((len(child.s), child.s) for child in tree.root.child_nodes())                    
                     print('Best root had score ', score, ' with ', tree.n_dup, ' non-terminal' if args.remove_in_paralogs else '',
-                        ' duplications; there were ', len(ties), ' ties.\nOutgroup: {',','.join(outgroup[1]),'}', sep='')
+                        ' duplications (', tree.n_p_dup, ' of these were perfect); there were ', len(ties), 
+                        ' ties.\nOutgroup: {',','.join(outgroup[1]),'}', sep='')
 
             # Choose modes
             if args.no_decomp:
                 out = [tree]
             else:
-                out = list(filter(lambda x:x.num_nodes(internal=False) >= args.minimum, decompose(tree, args.single_tree)))
+                out = list(filter(lambda x:x.num_nodes(internal=False) >= args.minimum, decompose(tree, args.boosted, args.single_tree)))
 
             # Output trees
             for t in out:
@@ -318,7 +369,7 @@ def main(args):
                 fo.write(t.newick() + '\n')
             
             if args.verbose:
-                print('Decomposition strategy outputted', len(out), 'tree(s) with minimum size', args.minimum, '.\n')
+                print('Decomposition strategy outputted ', len(out), ' tree(s) with minimum size ', args.minimum, '.\n', sep='')
 
             # output outgroups
             if args.outgroups:
@@ -354,6 +405,8 @@ if __name__ == "__main__":
                         help="Enables verbose output")
     parser.add_argument('-m', "--minimum", type=int, 
                         help="Minimum tree size outputted", default=4)
+    parser.add_argument('-b', "--boosted", action='store_true',
+                        help="Enable DISCO-boosted mode")
     parser.add_argument('-k', "--keep-original-labels", action='store_true', 
                         help="Keep original leaf labels instead of relabling them with their species labels (only relevent with delimiter)")
     parser.add_argument("--outgroups", action='store_true',
