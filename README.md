@@ -30,18 +30,26 @@ python3 disco.py -i <input_file> -o <ouput_file> -d <delimiter>
 
 #### Arguments
 
-- **Required**
-  - `-i`: Input newick tree file
-- **Optional**
-  - `-o`: Output newick tree file
-  - `-d`: Delimiter separating species name from rest of leaf label. Default None.
-  - `-s`: Output only single tree (discarding smallest duplicate clades).
-  - `-m`: Minimum number of taxa required for tree to be outputted. Default 4.
-  - `-n`: No decomposition (outputs rooted gene trees).
-  - `-v`: Enable verbose output
-  - `-k`: Keep original leaf labels (otherwise leaves are relabeled with species label; only relevant with delimiter option)
-  - `-rp`: Remove in-paralogs before rooting/scoring (does not affect output, only reported score)
-  - `--outgroups`: Write outgroups (including ties) to txt file. (Might make program slower).
+##### Required
+
+```
+-i, --input           Input newick tree file
+```
+
+##### Optional
+
+```
+-o, --output          Output newick tree file
+-d, --delimiter       Delimiter separating species name from rest of leaf label
+-s, --single-tree     Output only single large tree per gene tree 
+-n, --nth-delimiter   Split on Nth delimiter (only works with -d)
+-m, --minimum         Minimum number of taxa required for tree to be outputted
+-v, --verbose         Enable verbose output
+--keep-labels         Keep original leaf labels instead of using species name
+--no-decomp           Outputs rooted trees without decomposition
+--outgroups           Write outgroups (including ties) to txt file
+--remove-in-paralogs  Remove in-paralogs before rooting/scoring
+```
 
 #### Example
 

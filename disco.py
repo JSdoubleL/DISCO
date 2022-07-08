@@ -31,7 +31,7 @@ def reroot_on_edge(tree, node):
         tree.reroot(node, length=node.edge_length / 2)
 
 
-def remove_in_paralogs(tree, delimiter=None):
+def remove_in_paralogs(tree, gene_to_species=lambda x:x):
     """
     Removes in-paralogs from unrooted tree.
 
@@ -50,7 +50,7 @@ def remove_in_paralogs(tree, delimiter=None):
     num_paralogs = 0
     for node in tree.traverse_postorder():
         if node.is_leaf():
-            node.s = set([node.get_label().split(delimiter)[0]])
+            node.s = set([gene_to_species(node.get_label())])
         else:
             node.s = set([])
             for child in node.child_nodes():
@@ -79,7 +79,7 @@ def remove_in_paralogs(tree, delimiter=None):
     return num_paralogs
 
 
-def get_min_root(tree, delimiter=None, verbose=False):
+def get_min_root(tree, gene_to_species=lambda x:x, verbose=False):
     """
     Calculates the root with the minimum score.
 
@@ -115,7 +115,7 @@ def get_min_root(tree, delimiter=None, verbose=False):
     # Get down scores pass
     for node in tree.traverse_postorder():
         if node.is_leaf():
-            node.down = set([node.get_label().split(delimiter)[0]])
+            node.down = set([gene_to_species(node.get_label())])
             node.d_score = 0
         else:
             if node.num_children() != 2:
@@ -184,7 +184,7 @@ def get_min_root(tree, delimiter=None, verbose=False):
     return best_root, min_score, ties
 
 
-def tag(tree, delimiter=None):
+def tag(tree, gene_to_species=lambda x:x):
     """
     Tags tree according to its current rooting.
 
@@ -197,7 +197,7 @@ def tag(tree, delimiter=None):
     tree.resolve_polytomies()
     for node in tree.traverse_postorder():
         if node.is_leaf():
-            node.s = set([node.get_label().split(delimiter)[0]])
+            node.s = set([gene_to_species(node.get_label())])
             node.n_dup = 0
         else:
             [left, right] = node.child_nodes()
@@ -226,7 +226,6 @@ def decompose(tree, single_tree=False):
     Returns result of the decomposition as a list of trees
     """
     out = []
-    root = tree.root
     for node in tree.traverse_postorder(leaves=False):
         if node.tag == 'D':
             # trim off smallest subtree (i.e. subtree with least species)
@@ -240,34 +239,19 @@ def decompose(tree, single_tree=False):
     out.append(tree)
     return out
 
-def trivial(newick_str):
-    """
-    Determines if a newick string represents a trivial tree (tree containing no quartets).
 
-    Parameters
-    ----------
-    newick_str: newick string
-
-    Returns True if tree contains less than two '('
-    """
-    count = 0
-    for c in newick_str:
-        if c == '(':
-            count += 1
-        if count > 1:
-            return False
-    return True
-
-
-def relabel(tree, delimiter=None):
-    if delimiter is None:
-        return tree
+def relabel(tree, gene_to_species=lambda x:x):
     for l in tree.traverse_postorder(internal=False):
-        l.set_label(l.get_label().split(delimiter)[0])
+        l.set_label(gene_to_species(l.get_label()))
     return tree
 
 
 def main(args):
+    
+    if args.delimiter is not None:
+        gene_to_species = lambda x : args.delimiter.join(x.split(args.delimiter)[:args.nth_delimiter])
+    else:
+        gene_to_species = lambda x : x
 
     if args.output is None:
         split = args.input.rsplit('.', 1)
@@ -285,11 +269,11 @@ def main(args):
             tree = treeswift.read_tree_newick(line)
 
             if args.remove_in_paralogs:
-                num_paralogs = remove_in_paralogs(tree, args.delimiter)
+                num_paralogs = remove_in_paralogs(tree, gene_to_species)
 
-            root, score, ties = get_min_root(tree, args.delimiter)
+            root, score, ties = get_min_root(tree, gene_to_species)
             reroot_on_edge(tree, root)
-            tag(tree, args.delimiter)
+            tag(tree, gene_to_species)
 
             if args.verbose:
                 print('Tree ', i, ': Tree has ', len(tree.root.s), ' species.', sep='')
@@ -313,7 +297,7 @@ def main(args):
             # Output trees
             for t in out:
                 if not args.no_decomp: unroot(t)
-                if not args.keep_original_labels: relabel(t, args.delimiter)
+                if not args.keep_labels: relabel(t, gene_to_species)
                 t.suppress_unifurcations()
                 fo.write(t.newick() + '\n')
             
@@ -338,7 +322,7 @@ def main(args):
 
 if __name__ == "__main__":
 
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description='====================== DISCO v1.3 ======================')
 
     parser.add_argument("-i", "--input", type=str,
                         help="Input tree list file", required=True)
@@ -346,19 +330,35 @@ if __name__ == "__main__":
                         help="Output tree list file")
     parser.add_argument('-d', "--delimiter", type=str, 
                         help="Delimiter separating species name from rest of leaf label")
-    parser.add_argument('-n', '--no-decomp', action='store_true', 
-                        help="Outputs rooted trees without decomposition")
-    parser.add_argument('-s', '--single_tree', action='store_true',
-                        help="Only output single large tree")
-    parser.add_argument('-v', '--verbose', action='store_true',
-                        help="Enables verbose output")
+    parser.add_argument('-n', '--nth-delimiter', type=int, # Default is 1 -- set below
+                        help="Split on nth delimiter (only works with -d)")
     parser.add_argument('-m', "--minimum", type=int, 
                         help="Minimum tree size outputted", default=4)
-    parser.add_argument('-k', "--keep-original-labels", action='store_true', 
-                        help="Keep original leaf labels instead of relabling them with their species labels (only relevent with delimiter)")
+    parser.add_argument('-v', '--verbose', action='store_true',
+                        help="Enables verbose output")
+    parser.add_argument("--keep-labels", action='store_true', 
+                        help="Keep original leaf labels instead of relabeling them with their species labels (only relevant with delimiter)")
+    parser.add_argument('--single_tree', action='store_true',
+                        help="Only output single large tree")
+    parser.add_argument('--no-decomp', action='store_true', 
+                        help="Outputs rooted trees without decomposition")
     parser.add_argument("--outgroups", action='store_true',
                         help="Output outgroups to file (including ties)")
-    parser.add_argument('-rp', "--remove_in_paralogs", action='store_true',
+    parser.add_argument("--remove_in_paralogs", action='store_true',
                         help="Remove in-paralogs before rooting/scoring tree.")
 
-    main(parser.parse_args())
+    args = parser.parse_args()
+    if args.delimiter is None:
+        if args.nth_delimiter is not None:
+            parser.error("Cannot set -n without a delimiter")
+        if args.keep_labels:
+            parser.error("Cannot use --keep-labels without a delimiter")
+    elif args.nth_delimiter is None:
+        args.nth_delimiter = 1
+    if args.single_tree and args.no_decomp:
+        parser.error("Cannot combine --single_tree and --no-decomp")
+    if not args.verbose and args.remove_in_paralogs:
+        print("--remove_in_paralogs is meaningless without --verbose, as it does not change the optimal rooting. " + 
+            "It may also slow the program.")
+
+    main(args)

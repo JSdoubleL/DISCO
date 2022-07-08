@@ -89,7 +89,7 @@ if __name__=="__main__":
     #DECOMPM = args.decomp # decomposition method, either "s" or "d" for sampling or decomposition
     LEAFSET = args.taxonset
     OUTPUT = args.output #or INPATH + f".{K}.{DECOMPM}.aln"
-    delim = args.delimiter
+    DELIMITER = args.delimiter
     F = args.filter
 
     num_genes = sum(1 for _ in open(INPATH))
@@ -98,14 +98,14 @@ if __name__=="__main__":
         aln = None
         for i, l in enumerate(fh, start=1):
             t = ts.read_tree_newick(l)
-            t.reroot(get_min_root(t, delim)[0])
-            tag(t, delim)
+            t.reroot(get_min_root(t, lambda x:x.split(DELIMITER)[0])[0])
+            tag(t, lambda x:x.split(DELIMITER)[0])
             out = list(filter(lambda x:x.num_nodes(internal=False) >= F, decompose(t)))
             #phy = os.path.join(ALNROOT, format_phy(i, len(str(num_genes))))
             phy = ALNROOT[i - 1]
             for ot in out:
                 if aln == None:
-                    aln = retrieve_alignment(ot, phy, LEAFSET, delimiter=delim)
+                    aln = retrieve_alignment(ot, phy, LEAFSET, delimiter=DELIMITER)
                 else:
-                    aln += retrieve_alignment(ot, phy, LEAFSET, delimiter=delim)
+                    aln += retrieve_alignment(ot, phy, LEAFSET, delimiter=DELIMITER)
         AlignIO.write(aln, OUTPUT, "phylip")
