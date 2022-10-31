@@ -71,14 +71,20 @@ python3 ca_disco.py -i <input_trees> -a <alignments_list> -t <taxa_list> -o <out
 
 #### Arguments
 
-- **Required**
-  - `-i`: Input newick tree file
-  - `-a`: Text file containing paths to alignment files (one path for line, each path corresponding to gene-family tree on the same line in teh input tree file)
-  - `-t`: Text file containing taxa list (one taxon per line)
-  - `-o`: Output concatenated alignment file
-- **Optional**
-  - `-m`: Minimum number of taxa required for tree to be outputted. Default 4.
-  - `-d`: Delimiter separating species name from rest of leaf label. Default _.
+##### Required
+
+```
+-i, --input           Input newick tree file
+-a, --alignment       Text file containing paths to alignment files
+-t, --taxonset        Text file containing taxa list
+-o, --output          Output concatenated alignment file
+```
+
+##### Optional
+```
+-m, --filter          Minimum number of taxa required sequence group to be included
+-d, --delimiter       Delimiter separating species name from rest of leaf label
+```
 
 #### Example
 
