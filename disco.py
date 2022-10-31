@@ -267,6 +267,9 @@ def main(args):
     with open(args.input, 'r') as fi, open(output, 'w') as fo:
         for i, line in enumerate(fi, 1):
             tree = treeswift.read_tree_newick(line)
+            if type(tree) == list:
+                assert len(tree) == 0, "Could not interpret {} on line {:d} as a tree".format(line, i)
+                continue
 
             if args.remove_in_paralogs:
                 num_paralogs = remove_in_paralogs(tree, gene_to_species)
@@ -322,7 +325,7 @@ def main(args):
 
 if __name__ == "__main__":
 
-    parser = argparse.ArgumentParser(description='====================== DISCO v1.3 ======================')
+    parser = argparse.ArgumentParser(description='====================== DISCO v1.3.1 ======================')
 
     parser.add_argument("-i", "--input", type=str,
                         help="Input tree list file", required=True)
