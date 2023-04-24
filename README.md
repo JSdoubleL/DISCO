@@ -4,6 +4,16 @@ Decomposition Into Single-COpy gene trees ([DISCO](https://doi.org/10.1093/sysbi
 
 **NOTE:** For species tree estimation default settings are recommended; however, for orthology detection using `-m 2` is recommended so small groups are retrieved. It is also highly recommended that you use the most recent version of DISCO, as it deals with some limitations of TreeSwift.
 
+## Versions
+
+- v1.0 (May 21st 2021): Initial Release
+- v1.1 (July 19, 2021): Added `ca_disco.py` and adjustable filter (instead of just filtering all trees with less then 4 taxa)
+- v1.2 (June 8th, 2022): Tree rerooting fix (addresses issue with treeswift rooting with no edge lengths)
+- v1.3 (July 8th, 2022): Allows for more flexibility with leaf labels
+- v1.3.1 (October 31st, 2022): Fixes issue where extra newline character at the end of the file causes a crash 
+
+**Note:** At present, it is recommended to use the latest version if you want to run the DISCO algorithm as described in Willson et al. 2021, as using earlier versions can causes results inconsistent with the DISCO algorithm in rare cases. 
+
 ## Citation
 
 If you use DISCO, please cite:
