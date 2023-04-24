@@ -7,7 +7,7 @@ Decomposition Into Single-COpy gene trees ([DISCO](https://doi.org/10.1093/sysbi
 ## Versions
 
 - v1.0 (May 21st 2021): Initial Release
-- v1.1 (July 19th, 2021): Added `ca_disco.py` and adjustable filter (instead of just filtering all trees with less then 4 taxa)
+- v1.1 (July 19th, 2021): Added `ca_disco.py` and adjustable filter (instead of just filtering all trees with less than 4 taxa)
 - v1.2 (June 8th, 2022): Tree rerooting fix (addresses issue with treeswift rooting with no edge lengths)
 - v1.3 (July 8th, 2022): Allows for more flexibility with leaf labels
 - v1.3.1 (October 31st, 2022): Fixes issue where extra newline character at the end of the file causes a crash 
