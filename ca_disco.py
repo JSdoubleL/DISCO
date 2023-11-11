@@ -1,3 +1,4 @@
+from typing import Any, Iterable
 from disco import *
 import treeswift as ts
 from Bio import AlignIO
@@ -10,10 +11,12 @@ import argparse
 from argparse import ArgumentParser, ArgumentTypeError
 import re
 
-def fileList(path):
+def fileList(path: str) -> List[str]:
+    """Parses text file and returns list of file paths"""
     return [line.strip() for line in open(path).readlines()]
 
-def parseTaxonList(string):
+def parseTaxonList(string: str) -> List[str]:
+    """Parses taxon list input"""
     if os.path.isfile(string): 
         return [line.strip() for line in open(string).readlines()]
     # https://stackoverflow.com/a/6512463
@@ -26,11 +29,11 @@ def parseTaxonList(string):
     return list(range(int(start,10), int(end,10)+1))
 
 
-def retrieve_alignment(tre, alnpath, taxonset=range(0,101), delimiter='_'):
+def retrieve_alignment(tre: ts.Tree, alnpath: str, taxonset: Iterable[Any] = range(0,101), delimiter: str = '_'):
     """
     Parameters
     ----------------
-    tre : single-copy treeswift tree generated from James's code
+    tre : single-copy treeswift tree generated from James' code
     alnpath : path to the phylip formatted alignment of the genes. The row labels should be a superset of the leafset of 'tre'
     seqlen : sequence length parameter, only the first seqlen columns are taken from the MSA
     taxonset: set, the taxon set of the entire dataset
@@ -55,8 +58,8 @@ def retrieve_alignment(tre, alnpath, taxonset=range(0,101), delimiter='_'):
     res.sort()
     return res
 
-def format_phy(i, n):
-    return str(i).zfill(n) + ".phy"
+#def format_phy(i, n):
+#    return str(i).zfill(n) + ".phy"
 
 if __name__=="__main__":
 

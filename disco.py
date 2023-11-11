@@ -1,7 +1,8 @@
-import treeswift
+from typing import Callable, List
+import treeswift as ts
 import argparse
 
-def unroot(tree):
+def unroot(tree: ts.Tree) -> ts.Tree:
     """
     Unroots treeswift tree. Adapted from treeswift 'deroot' function.
     This one doesn't contract (A,B); to A;
@@ -24,21 +25,30 @@ def unroot(tree):
     return tree
 
 
-def reroot_on_edge(tree, node):
+def reroot_on_edge(tree: ts.Tree, node: ts.Node) -> None:
+    """
+    In order for DISCO to behave as expected, the root must bisect the edge
+    above the node we reroot on.
+
+    Parameters
+    ----------
+    tree: treeswift tree
+    node: node from safe treeswift tree
+    """
     if not node.is_root(): 
         if not hasattr(node, 'edge_length') or node.edge_length is None or node.edge_length == 0:
             node.edge_length = 1
         tree.reroot(node, length=node.edge_length / 2)
 
 
-def remove_in_paralogs(tree, gene_to_species=lambda x:x):
+def remove_in_paralogs(tree: ts.Tree, gene_to_species: Callable[[str], str] = lambda x:x) -> int:
     """
     Removes in-paralogs from unrooted tree.
 
     Parameters
     ----------
     tree: treeswift tree
-    delimiter: delimiter separating species name from rest of leaf label
+    gene_to_species: map from gene labels to species labels
 
     Returns number of in-paralogs removed
     """
@@ -79,18 +89,17 @@ def remove_in_paralogs(tree, gene_to_species=lambda x:x):
     return num_paralogs
 
 
-def get_min_root(tree, gene_to_species=lambda x:x, verbose=False):
+def get_min_root(tree: ts.Tree, gene_to_species: Callable[[str], str] = lambda x:x, verbose: bool = False) -> ts.Node:
     """
     Calculates the root with the minimum score.
 
     Parameters
     ----------
     tree: treeswift tree
-    delimiter: delimiter separating species name from rest of leaf label
+    gene_to_species: map from gene labels to species labels
 
     Returns vertex corresponding to best edge to root tree on
     """
-
     def score(total_set, set1, set2):
         if not len(set1.intersection(set2)) == 0:
                 if total_set == set1 or total_set == set2:
@@ -184,7 +193,7 @@ def get_min_root(tree, gene_to_species=lambda x:x, verbose=False):
     return best_root, min_score, ties
 
 
-def tag(tree, gene_to_species=lambda x:x):
+def tag(tree: ts.Tree, gene_to_species: Callable[[str], str] = lambda x:x, verbose: bool = False) -> None:
     """
     Tags tree according to its current rooting.
 
@@ -212,7 +221,7 @@ def tag(tree, gene_to_species=lambda x:x):
     tree.n_dup = tree.root.n_dup
 
 
-def decompose(tree, single_tree=False):
+def decompose(tree: ts.Tree, single_tree: bool = False) -> List[ts.Tree]:
     """
     Decomposes a tagged tree, by separating clades at duplication vetices
 
@@ -240,13 +249,24 @@ def decompose(tree, single_tree=False):
     return out
 
 
-def relabel(tree, gene_to_species=lambda x:x):
+def relabel(tree: ts.Tree, gene_to_species: Callable[[str], str] = lambda x:x) -> ts.Tree:
+    """
+    Relabels leaf labels given map. Used to relabel leaf labels 
+    coresponding to genes into leaf labels corresponding to species
+
+    Parameters
+    ----------
+    tree: treeswift tree
+    gene_to_species: mapping function used to relabel
+
+    Returns relabeled treeswift tree
+    """
     for l in tree.traverse_postorder(internal=False):
         l.set_label(gene_to_species(l.get_label()))
     return tree
 
 
-def main(args):
+def main(args: argparse.Namespace) -> None:
     
     if args.delimiter is not None:
         gene_to_species = lambda x : args.delimiter.join(x.split(args.delimiter)[:args.nth_delimiter])
@@ -266,7 +286,7 @@ def main(args):
 
     with open(args.input, 'r') as fi, open(output, 'w') as fo:
         for i, line in enumerate(fi, 1):
-            tree = treeswift.read_tree_newick(line)
+            tree = ts.read_tree_newick(line)
             if type(tree) == list:
                 assert len(tree) == 0, "Could not interpret {} on line {:d} as a tree".format(line, i)
                 continue
@@ -309,7 +329,7 @@ def main(args):
 
             # output outgroups
             if args.outgroups:
-                og_tree = treeswift.read_tree_newick(line)
+                og_tree = ts.read_tree_newick(line)
                 root, score, ties = get_min_root(og_tree, args.delimiter)
                 reroot_on_edge(og_tree, root)
                 tag(og_tree, args.delimiter)
