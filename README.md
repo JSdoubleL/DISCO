@@ -82,7 +82,7 @@ python3 disco.py -i <input_file> -o <ouput_file> -d <delimiter>
 #### Example
 
 ```cmd
-python3 tag_decomp.py -i example/gtrees-mult.trees
+python3 disco.py -i example/gtrees-mult.trees
 ```
 
 ### ca_disco.py
