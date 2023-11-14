@@ -1,4 +1,6 @@
-from typing import Callable, List
+import csv
+import os
+from typing import Any, Callable, Dict, Iterable, List, Set, Tuple, Union
 import treeswift as ts
 import argparse
 
@@ -35,6 +37,7 @@ def reroot_on_edge(tree: ts.Tree, node: ts.Node) -> None:
     tree: treeswift tree
     node: node from safe treeswift tree
     """
+    tree.root.edge_length = None # prevent creation of leaf called ROOT
     if not node.is_root(): 
         if not hasattr(node, 'edge_length') or node.edge_length is None or node.edge_length == 0:
             node.edge_length = 1
@@ -55,7 +58,6 @@ def remove_in_paralogs(tree: ts.Tree, gene_to_species: Callable[[str], str] = la
     # root tree if not rooted
     if tree.root.num_children() != 2:
         reroot_on_edge(tree, tree.root.child_nodes()[0])
-        #tree.reroot(tree.root)
 
     num_paralogs = 0
     for node in tree.traverse_postorder():
@@ -89,7 +91,8 @@ def remove_in_paralogs(tree: ts.Tree, gene_to_species: Callable[[str], str] = la
     return num_paralogs
 
 
-def get_min_root(tree: ts.Tree, gene_to_species: Callable[[str], str] = lambda x:x, verbose: bool = False) -> ts.Node:
+def get_min_root(tree: ts.Tree, gene_to_species: Callable[[str], str] = lambda x:x, verbose: bool = False
+                ) -> Tuple[ts.Node, int, List[Tuple[ts.Node, ts.Node]]]:
     """
     Calculates the root with the minimum score.
 
@@ -162,7 +165,7 @@ def get_min_root(tree: ts.Tree, gene_to_species: Callable[[str], str] = lambda x
     # if both are leaves (i.e. two leaf tree), we want to keep the same rooting
     else:
         best_root = root
-    ties = [best_root]
+    ties = [(best_root, left)]
 
     for node in tree.traverse_preorder(leaves=False):
         if not node.skip:
@@ -179,13 +182,12 @@ def get_min_root(tree: ts.Tree, gene_to_species: Callable[[str], str] = lambda x
             total_score = node.u_score + node.d_score + score(node.up.union(node.down), node.up, node.down)
 
             if total_score == min_score:
-                ties.append(node)
+                ties.append((node, parent))
                 
             if total_score < min_score:
-                num_ties = 0
                 min_score = total_score
                 best_root = node
-                ties = [node]
+                ties = [(node, parent)]
 
     if verbose:            
         print('Best root had score', min_score, 'there were', len(ties), 'ties.')
@@ -193,14 +195,14 @@ def get_min_root(tree: ts.Tree, gene_to_species: Callable[[str], str] = lambda x
     return best_root, min_score, ties
 
 
-def tag(tree: ts.Tree, gene_to_species: Callable[[str], str] = lambda x:x, verbose: bool = False) -> None:
+def tag(tree: ts.Tree, gene_to_species: Callable[[str], str] = lambda x:x) -> None:
     """
     Tags tree according to its current rooting.
 
     Parameters
     ----------
     tree: treeswift tree
-    delimiter: delimiter separating species name from rest of leaf label
+    gene_to_species: map from gene labels to species labels
     """
     tree.suppress_unifurcations()
     tree.resolve_polytomies()
@@ -223,7 +225,7 @@ def tag(tree: ts.Tree, gene_to_species: Callable[[str], str] = lambda x:x, verbo
 
 def decompose(tree: ts.Tree, single_tree: bool = False) -> List[ts.Tree]:
     """
-    Decomposes a tagged tree, by separating clades at duplication vetices
+    Decomposes a tagged tree, by separating clades at duplication vertices
 
     NOTE: must be run after 'tag()'
 
@@ -252,7 +254,7 @@ def decompose(tree: ts.Tree, single_tree: bool = False) -> List[ts.Tree]:
 def relabel(tree: ts.Tree, gene_to_species: Callable[[str], str] = lambda x:x) -> ts.Tree:
     """
     Relabels leaf labels given map. Used to relabel leaf labels 
-    coresponding to genes into leaf labels corresponding to species
+    corresponding to genes into leaf labels corresponding to species
 
     Parameters
     ----------
@@ -266,86 +268,209 @@ def relabel(tree: ts.Tree, gene_to_species: Callable[[str], str] = lambda x:x) -
     return tree
 
 
-def main(args: argparse.Namespace) -> None:
+def print_stats(i: int, stats: Dict[str, Any]) -> None:
+    """Given number (i) and stats dictionary, prints stats for a tree"""
+    print(f"""
+Tree:                   {i}
+Number of Species:      {stats["num_species"]}
+Number of Duplications: {stats["num_duplications"]}
+Best Rooting Score:     {stats["best_score"]}
+Number of Rooting Ties: {stats["num_ties"]}
+Outgroup:
+{", ".join(stats["outgroup"])}
+""")
+
+
+def write_stats(stat_list: List[Dict[str, Any]], path: str) -> None:
+    """Write list of tree stats to csv file"""
+    with open(path, "w", newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow(["tree","num_species", "num_duplications", "best_score", "num_ties", "outgroup"])
+        writer.writerows([[i] + [v if v != set() else "{}" for v in row.values() ] for i, row in enumerate(stat_list)])
+
+
+def calcualte_outgroups(tree: Union[str, ts.Tree], leaf_to_species: Callable[[str], str]) -> Tuple[str, List[Set[str]]]:
+    """Calculates outgroups (including ties) and outputs them to a text file"""
+    if isinstance(tree, str):
+        tree = ts.read_tree_newick(tree)
+    if isinstance(tree, list): # check for unexpected treeswift outputs
+        raise ValueError(f"{tree} could not be interpreted as a tree")
+
+    root, _, ties = get_min_root(tree, leaf_to_species)
+    reroot_on_edge(tree, root)
+    tag(tree, leaf_to_species)
+
+    outgroups = []
+    if tree.n_dup == 0:
+        tree_type = "Single-Copy"
+        outgroups.append(set())
+    elif len(tree.root.s) < 2:
+        tree_type = "Uninformative"
+        outgroups.append(set(tree.root.s.pop()))
+    else:
+        tree_type = "Multicopy-Tree"
+        for n1, n2 in ties:
+            # tied roots are recored as two nodes as we don't know the orintation of the tree
+            # when they were recorded. We need the lowest of the two.
+            new_root = n1 if n1 in n2.child_nodes() else n2
+            reroot_on_edge(tree, new_root)
+            tag(tree, leaf_to_species)
+            outgroup = min((len(child.s), child.s) for child in tree.root.child_nodes())[1]
+            outgroups.append(outgroup)
+    return tree_type, outgroups
+
+
+def _disco(input_tree: Union[str, ts.Tree], callback: Callable[[str], Any] = lambda x:x, minimum: int = 4, 
+           leaf_to_species: Callable[[str], str] = lambda x:x, 
+           keep_labels: bool = False, single_tree: bool = False, no_decomp: bool = False, verbose: bool = False
+          ) -> Tuple[List[ts.Tree], Dict[str, Any]]:
+    """Decompose single tree with DISCO algorithm. Returns list of trees and dictionary containing stats."""
+
+    # stats we want to record for each tree
+    stats = {"num_species":-1,
+            "num_duplications":-1,
+            "best_score":-1,
+            "num_ties":-1,
+            "outgroup":[]}
+
+    # if tree is a newick string, make it a treesiwft object
+    if isinstance(input_tree, str):
+        tree = ts.read_tree_newick(input_tree)
+    if isinstance(tree, list): # check for unexpected treeswift outputs
+        raise ValueError(f"{input_tree} could not be interpreted as a tree")
+
+    # Root and tag steps
+    root, score, ties = get_min_root(tree, leaf_to_species)
+    reroot_on_edge(tree, root)
+    tag(tree, leaf_to_species)
+
+    # Record stats
+    stats["num_species"] = len(tree.root.s)
+    stats["num_duplications"] = tree.n_dup
+    stats["best_score"] = score
+    stats["num_ties"] = len(ties)
+    stats["outgroup"] = min([(len(child.s), child.s) for child in tree.root.child_nodes()], default=(None,set()))[1]
+
+    if no_decomp:
+        out = [tree]
+    else:
+        out = list(filter(lambda x:x.num_nodes(internal=False) >= minimum, decompose(tree, single_tree)))
+
+    # Clean output trees
+    for t in out:
+        if not no_decomp: unroot(t)
+        if not keep_labels: relabel(t, leaf_to_species)
+        t.suppress_unifurcations()
+
+    return callback([t.newick() for t in out]), stats
+
+
+def disco(input_trees: Union[str, Iterable[str]], minimum: int = 4, leaf_to_species: Callable[[str], str] = lambda x:x,
+          out_path: str = None, keep_labels: bool = False, single_tree: bool = False, no_decomp: bool = False, verbose: bool = False
+         ) -> Tuple[Union[List[List[str]], None], List[Dict[str, Any]]]:
+    """
+    Runs DISCO algorithm on tree(s).
+
+    Decomposition Into Single-COpy gene trees (DISCO) is a method for decomposing multi-copy gene-family 
+    trees while attempting to preserve orthologs and discard paralogs. These single-copy gene trees can 
+    be subsequently used by methods that can estimate species trees from single-copy gene trees such as 
+    ASTRAL or ASTRID in order to obtain an accurate estimation of the species tree.
+
+    Parameters
+    ----------
+    - input: Either file path, newick tree string, or treeswift tree to be used as algorithm input.
+    - minimum: Trees (after algorithm is run) must have >= leaves to this value to be included in the output. 
+        Default 4, as that is the minimum number of leaves that are topologically meaningful if unrooted.
+    - leaf_to_species: Function or other callable mapping the leaf labels to the species labels. Default (x) -> x.
+    - keep_labels: Keep original tree labels; otherwise these are replaced with species labels. Default False.
+    - single_tree: Just output the single largest tree instead of the full output. Default False.
+    - verbose: Enables verbose output
+
+    Returns DISCO algorithm output as a tuple with two values:
+    - 2d list of newick strings; the first index corresponding to the index of the original tree
+    - A list of dictionaries containing stats - one for each original tree 
+
+    Raises TypeError if input_trees type does not correct.
+    """
+    pass_args = {"minimum":minimum, "leaf_to_species":leaf_to_species, "keep_labels":keep_labels, "single_tree":single_tree, 
+        "no_decomp":no_decomp, "verbose":verbose}
     
+    # simple - single tree - case
+    if isinstance(input_trees, str) and not os.path.isfile(input_trees):
+        return _disco(input_trees, **pass_args)
+    elif not os.path.isfile(input_trees) and not isinstance(input_trees, Iterable):
+        raise TypeError(f"{type(input_trees).__name__} is not a valid input type for disco()")
+    
+    # set input iterator and callback
+    reader = input_trees if not os.path.isfile(input_trees) else open(input_trees)
+    output_trees = []
+    output_file = open(out_path, "w")
+    writer = output_trees.append if out_path is None else lambda x: output_file.writelines([l + '\n' for l in x])
+
+    stats = []
+    for i, tree in enumerate(reader):
+        _, stat = _disco(tree, writer, **pass_args)
+        if verbose:
+            print_stats(i, stat)
+        stats.append(stat)
+    
+    if os.path.isfile(input_trees):
+        reader.close()
+    if out_path is not None:
+        output_file.close()
+    
+    return None if len(output_trees) == 0 else output_trees, stats
+
+
+def run_console_disco(args: argparse.Namespace) -> None:
+    """Run command line DISCO"""
+    # set up gene -> species map if delimiter is used
     if args.delimiter is not None:
         gene_to_species = lambda x : args.delimiter.join(x.split(args.delimiter)[:args.nth_delimiter])
     else:
         gene_to_species = lambda x : x
 
-    if args.output is None:
-        split = args.input.rsplit('.', 1)
-        output = split[0] + '-decomp.' + split[1]
+    # set default name for output
+    input_file = args.input
+    prefix, postfix = input_file.rsplit('.', 1)
+    if args.output is None: 
+        output_file = prefix + '-decomp.' + postfix
     else:
-        output = args.output
+        prefix, postfix = args.output.rsplit('.', 1)
+        output_file = args.output
 
-    # delete existing outgroup file (so you don't append to it)
-    outgroup_file_name = args.input.rsplit('.', 1)[0] + '_outgroups.txt'
+    # remove imparalogs 
+    if args.remove_in_paralogs:
+        # add "no-inparalogs" to all file names
+        prefix += '_no-inparalogs'
+        no_paralogs_file = prefix + '.' + postfix
+        with open(input_file, "r") as fi, open(no_paralogs_file, "w") as fo:
+            for line in fi:
+                if line.strip() != '':
+                    tree = ts.read_tree_newick(line)
+                    remove_in_paralogs(tree, gene_to_species)
+                    unroot(tree)
+                    fo.write(tree.newick() + '\n')
+        input_file = no_paralogs_file
+
+    # run DISCO
+    _, stats = disco(input_file, args.minimum, gene_to_species, output_file, args.keep_labels, args.single_tree, 
+        args.no_decomp, args.verbose)
+
+    # write stats
+    if args.stats:
+        write_stats(stats, prefix + '_stats.csv')
+
+    # calculate and write outgroups
     if args.outgroups:
-        open(outgroup_file_name, 'w').close()
+        with open(input_file, "r") as fi, open(prefix + '_outgroups.txt', "w") as fo:
+            for i, line in enumerate(fi):
+                tree_type, outgroups = calcualte_outgroups(line, gene_to_species)
+                fo.write(f"Tree {i} is {tree_type}:\n" + "\n".join("    {" + ", ".join(list(map(str, outgroup))) + "}" for outgroup in outgroups) + "\n")
 
-    with open(args.input, 'r') as fi, open(output, 'w') as fo:
-        for i, line in enumerate(fi, 1):
-            tree = ts.read_tree_newick(line)
-            if type(tree) == list:
-                assert len(tree) == 0, "Could not interpret {} on line {:d} as a tree".format(line, i)
-                continue
-
-            if args.remove_in_paralogs:
-                num_paralogs = remove_in_paralogs(tree, gene_to_species)
-
-            root, score, ties = get_min_root(tree, gene_to_species)
-            reroot_on_edge(tree, root)
-            tag(tree, gene_to_species)
-
-            if args.verbose:
-                print('Tree ', i, ': Tree has ', len(tree.root.s), ' species.', sep='')
-                if args.remove_in_paralogs:
-                    print(num_paralogs, 'in-paralogs removed prior to rooting/scoring.')  
-                if len(tree.root.s) < 2:
-                    print('Uninformative')
-                elif tree.n_dup == 0:
-                    print('Single-Copy')                 
-                else:
-                    outgroup = min((len(child.s), child.s) for child in tree.root.child_nodes())                    
-                    print('Best root had score ', score, ' with ', tree.n_dup, ' non-terminal' if args.remove_in_paralogs else '',
-                        ' duplications; there were ', len(ties), ' ties.\nOutgroup: {',','.join(outgroup[1]),'}', sep='')
-
-            # Choose modes
-            if args.no_decomp:
-                out = [tree]
-            else:
-                out = list(filter(lambda x:x.num_nodes(internal=False) >= args.minimum, decompose(tree, args.single_tree)))
-
-            # Output trees
-            for t in out:
-                if not args.no_decomp: unroot(t)
-                if not args.keep_labels: relabel(t, gene_to_species)
-                t.suppress_unifurcations()
-                fo.write(t.newick() + '\n')
-            
-            if args.verbose:
-                print('Decomposition strategy outputted', len(out), 'tree(s) with minimum size', args.minimum, '.\n')
-
-            # output outgroups
-            if args.outgroups:
-                og_tree = ts.read_tree_newick(line)
-                root, score, ties = get_min_root(og_tree, args.delimiter)
-                reroot_on_edge(og_tree, root)
-                tag(og_tree, args.delimiter)
-                if len(og_tree.root.s) >= 2 and og_tree.n_dup >= 1:
-                    with open(outgroup_file_name, 'a') as outgfile:
-                        outgfile.write('Tree ' + str(i) + ':\n')
-                        for t in ties:
-                            reroot_on_edge(og_tree, t)
-                            tag(og_tree, args.delimiter)
-                            outgroup = min((len(child.s), child.s) for child in og_tree.root.child_nodes())
-                            outgfile.write('{' + ','.join(outgroup[1]) + '}\n')
-            
 
 if __name__ == "__main__":
-
-    parser = argparse.ArgumentParser(description='====================== DISCO v1.3.1 ======================')
+    parser = argparse.ArgumentParser(description='====================== DISCO v1.3.2 ======================')
 
     parser.add_argument("-i", "--input", type=str,
                         help="Input tree list file", required=True)
@@ -359,6 +484,8 @@ if __name__ == "__main__":
                         help="Minimum tree size outputted", default=4)
     parser.add_argument('-v', '--verbose', action='store_true',
                         help="Enables verbose output")
+    parser.add_argument('--stats', action='store_true',
+                        help="Write stats about decomposed trees to csv file")
     parser.add_argument("--keep-labels", action='store_true', 
                         help="Keep original leaf labels instead of relabeling them with their species labels (only relevant with delimiter)")
     parser.add_argument('--single_tree', action='store_true',
@@ -384,4 +511,4 @@ if __name__ == "__main__":
         print("--remove_in_paralogs is meaningless without --verbose, as it does not change the optimal rooting. " + 
             "It may also slow the program.")
 
-    main(args)
+    run_console_disco(args)
