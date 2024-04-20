@@ -81,18 +81,18 @@ python3 disco.py -i <input_file> -o <ouput_file> -d <delimiter>
 
 #### Example
 
-```cmd
+```bash
 python3 disco.py -i example/gtrees-mult.trees
 ```
 
 ### ca_disco.py
 
-**Input**: File containing list of multi-copy trees in newick format and set of alignment files in phylip format corresponding to the gene families.
+**Input**: File containing list of multi-copy trees in newick format and set of alignment files corresponding to the gene families.
 
-**Output**: Concatenated alignment file in the phylip format
+**Output**: Concatenated alignment file
 
 ```
-python3 ca_disco.py -i <input_trees> -a <alignments_list> -t <taxa_list> -o <output> -d <delimiter> -m <n> 
+python3 ca_disco.py -i <input_trees> -a <aln_1> ... <aln_n> -o <output> -d <delimiter> -m <number> 
 ```
 
 `disco.py` must be present in the same directory as `ca_disco.py` in order for it to run. Also, unlike `disco.py`, it is necessary for the input newick trees given to `ca_disco.py` to have unique leaf labels where the taxon name comes first and is separated from the rest of the name by some delimiter. 
@@ -104,7 +104,7 @@ python3 ca_disco.py -i <input_trees> -a <alignments_list> -t <taxa_list> -o <out
 ```
 -i, --input           Input newick tree file
 -a, --alignment       Text file containing paths to alignment files
--t, --taxonset        Text file containing taxa list
+-f, --format          Format of alignment file (either "fasta" or "phylip")
 -o, --output          Output concatenated alignment file
 ```
 
@@ -116,6 +116,6 @@ python3 ca_disco.py -i <input_trees> -a <alignments_list> -t <taxa_list> -o <out
 
 #### Example
 
-```cmd
-python3 ca_disco.py -i example/g_100.trees -o example.phy -a example/seq_list.txt -t example/taxa_list.txt
+```bash 
+python3 ca_disco.py -i example/g_100.trees -o example.phy -a $(cat example/seq_list.txt) -f phylip
 ```
