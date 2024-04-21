@@ -1,5 +1,6 @@
 import argparse
 import csv
+import os
 
 from Bio import AlignIO
 from Bio.Align import MultipleSeqAlignment
@@ -76,7 +77,8 @@ def main(args):
             assert all(len(x) == 2 for x in input_alignments), "alignment list file format problem"
             for partition, (aln_file, model) in zip(partitions, input_alignments):
                 if partition != "empty":
-                    f.write(f"{model}, {aln_file.split('.')[0]}={partition}\n")
+                    gene_name = aln_file.split(os.sep)[-1].split('.')[0]
+                    f.write(f"{model}, {gene_name}={partition}\n")
 
     AlignIO.write(aln, f"{args.output_prefix}-aln.{args.format[:3]}", args.format)
 

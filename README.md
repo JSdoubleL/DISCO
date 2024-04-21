@@ -92,10 +92,12 @@ python3 disco.py -i example/gtrees-mult.trees
 **Output**: Concatenated alignment file
 
 ```
-python3 ca_disco.py -i <input_trees> -a <aln_1> ... <aln_n> -o <output> -d <delimiter> -m <number> 
+python3 ca_disco.py -i <input_trees> -a <aln_list> -o <output> -d <delimiter> -m <number> 
 ```
 
 `disco.py` must be present in the same directory as `ca_disco.py` in order for it to run. Also, unlike `disco.py`, it is necessary for the input newick trees given to `ca_disco.py` to have unique leaf labels where the taxon name comes first and is separated from the rest of the name by some delimiter. 
+
+The `-a` argument should be given the path to an "alignment list" file containing the path to each alignment file you want to concatinate separated by a new line. The order of the alignment files is important---for each tree in the input newick tree file, there should be a corresponding alignment on the same line in the respective alignment list file.  
 
 #### Arguments
 
@@ -112,10 +114,23 @@ python3 ca_disco.py -i <input_trees> -a <aln_1> ... <aln_n> -o <output> -d <deli
 ```
 -m, --filter          Minimum number of taxa required sequence group to be included
 -d, --delimiter       Delimiter separating species name from rest of leaf label
+-p, --partition       Create partition file
 ```
 
 #### Example
 
 ```bash 
-python3 ca_disco.py -i example/g_100.trees -o example.phy -a $(cat example/seq_list.txt) -f phylip
+python3 ca_disco.py -i example/g_100.trees -o example.phy -a example/seq_list.csv -f phylip
 ```
+
+#### Partition File
+
+`ca_disco.py` now has the option to create a partition file; this can be done with the optional `-p` argument. If this argument is specified, it is necessary to provide relavent information in the alignment list file. For example, see `example/seq_list.csv`. This would generate a partition file like so:
+```
+GTR+G, 0001=1-200
+GTR+G, 0002=201-700
+GTR+G, 0004=701-1300
+...
+```
+**Note:** Gene 0003 is missing. This is not a mistake; this is because it does not have enough informative information to generate large enough DISCO subtrees and thus is not included in the alignment.
+
