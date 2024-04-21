@@ -325,7 +325,7 @@ def main(args):
 
 if __name__ == "__main__":
 
-    parser = argparse.ArgumentParser(description='====================== DISCO v1.3.1 ======================')
+    parser = argparse.ArgumentParser(description='====================== DISCO v1.4.0 ======================')
 
     parser.add_argument("-i", "--input", type=str,
                         help="Input tree list file", required=True)

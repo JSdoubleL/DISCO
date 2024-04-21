@@ -11,6 +11,7 @@ Decomposition Into Single-COpy gene trees ([DISCO](https://doi.org/10.1093/sysbi
 - v1.2 (June 8th, 2022): Tree rerooting fix (addresses issue with treeswift rooting with no edge lengths)
 - v1.3 (July 8th, 2022): Allows for more flexibility with leaf labels
 - v1.3.1 (October 31st, 2022): Fixes issue where extra newline character at the end of the file causes a crash 
+- v1.4.0 (April 21st, 2024): Added ability to make a partition file to CA-DISCO
 
 **Note:** At present, it is recommended to use the latest version if you want to run the DISCO algorithm as described in Willson et al. 2021, as using earlier versions can causes results inconsistent with the DISCO algorithm in rare cases. 
 
@@ -21,7 +22,7 @@ If you use DISCO, please cite:
 @article{willson2022disco,
   title={DISCO: Species tree inference using multicopy gene family tree decomposition},
   author={Willson, James and Roddur, Mrinmoy Saha and Liu, Baqiao and Zaharias, Paul and Warnow, Tandy},
-  journal={Systematic biology},
+  journal={Systematic Biology},
   volume={71},
   number={3},
   pages={610--629},
@@ -81,21 +82,23 @@ python3 disco.py -i <input_file> -o <ouput_file> -d <delimiter>
 
 #### Example
 
-```cmd
+```bash
 python3 disco.py -i example/gtrees-mult.trees
 ```
 
 ### ca_disco.py
 
-**Input**: File containing list of multi-copy trees in newick format and set of alignment files in phylip format corresponding to the gene families.
+**Input**: File containing list of multi-copy trees in newick format and set of alignment files corresponding to the gene families.
 
-**Output**: Concatenated alignment file in the phylip format
+**Output**: Concatenated alignment file
 
 ```
-python3 ca_disco.py -i <input_trees> -a <alignments_list> -t <taxa_list> -o <output> -d <delimiter> -m <n> 
+python3 ca_disco.py -i <input_trees> -a <aln_list> -o <output> -d <delimiter> -m <number> 
 ```
 
 `disco.py` must be present in the same directory as `ca_disco.py` in order for it to run. Also, unlike `disco.py`, it is necessary for the input newick trees given to `ca_disco.py` to have unique leaf labels where the taxon name comes first and is separated from the rest of the name by some delimiter. 
+
+The `-a` argument should be given the path to an "alignment list" file containing the path to each alignment file you want to concatinate separated by a new line. The order of the alignment files is important---for each tree in the input newick tree file, there should be a corresponding alignment on the same line in the respective alignment list file.  
 
 #### Arguments
 
@@ -104,7 +107,7 @@ python3 ca_disco.py -i <input_trees> -a <alignments_list> -t <taxa_list> -o <out
 ```
 -i, --input           Input newick tree file
 -a, --alignment       Text file containing paths to alignment files
--t, --taxonset        Text file containing taxa list
+-f, --format          Format of alignment file (either "fasta" or "phylip")
 -o, --output          Output concatenated alignment file
 ```
 
@@ -112,10 +115,23 @@ python3 ca_disco.py -i <input_trees> -a <alignments_list> -t <taxa_list> -o <out
 ```
 -m, --filter          Minimum number of taxa required sequence group to be included
 -d, --delimiter       Delimiter separating species name from rest of leaf label
+-p, --partition       Create partition file
 ```
 
 #### Example
 
-```cmd
-python3 ca_disco.py -i example/g_100.trees -o example.phy -a example/seq_list.txt -t example/taxa_list.txt
+```bash 
+python3 ca_disco.py -i example/g_100.trees -o example.phy -a example/seq_list.csv -f phylip
 ```
+
+#### Partition File
+
+`ca_disco.py` now has the option to create a partition file; this can be done with the optional `-p` argument. If this argument is specified, it is necessary to provide relavent information in the alignment list file. For example, see `example/seq_list.csv`. This would generate a partition file like so:
+```
+GTR+G, 0001=1-200
+GTR+G, 0002=201-700
+GTR+G, 0004=701-1300
+...
+```
+**Note:** Gene 0003 is missing. This is not a mistake; this is because it does not have enough informative information to generate large enough DISCO subtrees and thus is not included in the alignment.
+
