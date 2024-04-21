@@ -11,6 +11,7 @@ Decomposition Into Single-COpy gene trees ([DISCO](https://doi.org/10.1093/sysbi
 - v1.2 (June 8th, 2022): Tree rerooting fix (addresses issue with treeswift rooting with no edge lengths)
 - v1.3 (July 8th, 2022): Allows for more flexibility with leaf labels
 - v1.3.1 (October 31st, 2022): Fixes issue where extra newline character at the end of the file causes a crash 
+- v1.4.0 (April 21st, 2024): Added ability to make a partition file to CA-DISCO
 
 **Note:** At present, it is recommended to use the latest version if you want to run the DISCO algorithm as described in Willson et al. 2021, as using earlier versions can causes results inconsistent with the DISCO algorithm in rare cases. 
 
