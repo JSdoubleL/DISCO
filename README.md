@@ -21,7 +21,7 @@ If you use DISCO, please cite:
 @article{willson2022disco,
   title={DISCO: Species tree inference using multicopy gene family tree decomposition},
   author={Willson, James and Roddur, Mrinmoy Saha and Liu, Baqiao and Zaharias, Paul and Warnow, Tandy},
-  journal={Systematic biology},
+  journal={Systematic Biology},
   volume={71},
   number={3},
   pages={610--629},

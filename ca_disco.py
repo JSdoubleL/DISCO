@@ -1,4 +1,5 @@
 import argparse
+import csv
 
 from Bio import AlignIO
 from Bio.Align import MultipleSeqAlignment
@@ -42,6 +43,7 @@ def retrieve_alignment(tree, aln_path, format, taxa_set, label_to_species):
     return result
 
 def main(args):
+    input_alignments = [row for row in csv.reader(open(args.alignment, "r"))]
     label_to_species = lambda x:x.split(args.delimiter)[0]
     tree_list = ts.read_tree_newick(args.input)
     assert not isinstance(tree_list, ts.Tree)
@@ -54,31 +56,47 @@ def main(args):
         aln.append(SeqRecord(Seq(''), id=taxa))
     aln.sort()  
 
-    for i, tree in enumerate(tree_list, start=1):
+    partitions = []
+    p_index = 1
+
+    for (aln_file, *_), tree in zip(input_alignments, tree_list):
         tree.reroot(get_min_root(tree, label_to_species)[0])
         tag(tree,label_to_species)
         disco_trees = list(filter(lambda x:x.num_nodes(internal=False) >= args.filter, decompose(tree)))
-        aln_file = args.alignment[i - 1]
         for dtree in disco_trees:
             aln += retrieve_alignment(dtree, aln_file, args.format,taxa_set, label_to_species)
+        if aln.get_alignment_length() + 1 != p_index:
+            partitions.append(f"{p_index:d}-{aln.get_alignment_length():d}") 
+            p_index = aln.get_alignment_length() + 1
+        else:
+            partitions.append("empty")
 
-    AlignIO.write(aln, args.output, args.format)
+    if args.partition:
+        with open(f"{args.output_prefix}-partitions.txt", "w") as f:
+            assert all(len(x) == 2 for x in input_alignments), "alignment list file format problem"
+            for partition, (aln_file, model) in zip(partitions, input_alignments):
+                if partition != "empty":
+                    f.write(f"{model}, {aln_file.split('.')[0]}={partition}\n")
+
+    AlignIO.write(aln, f"{args.output_prefix}-aln.{args.format[:3]}", args.format)
 
 if __name__=="__main__":
-    parser = argparse.ArgumentParser(description = "generate concatenation files from gene-family trees using decomposition strategies")
+    parser = argparse.ArgumentParser(description="generate concatenation files from gene-family trees using decomposition strategies")
 
     parser.add_argument("-i", "--input", type=str,
-                        help="Input tree list file", required=True)
-    parser.add_argument("-o", "--output", type=str, required=True,
-                        help="Output tree list file")
-    parser.add_argument("-a", "--alignment", nargs="+", type=str,
-                        help="File containing paths to all alignment files in order the genes are found in the input newick file")
+                        help="input tree list file", required=True)
+    parser.add_argument("-o", "--output-prefix", type=str, required=True,
+                        help="output tree list file")
+    parser.add_argument("-a", "--alignment", required=True, type=str,
+                        help="alignment files list")
     parser.add_argument('-f', '--format', choices=["phylip", "fasta"], required=True,
                         help="alignment file format")
     parser.add_argument('-d', '--delimiter', type=str, default='_',
-                        help="Delimiter separating taxon label from the rest of the leaf label.")
+                        help="delimiter separating taxon label from the rest of the leaf label.")
     parser.add_argument('-m', '--filter', type=int, default=4,
-                        help="Exclude decomposed trees with less then X taxa")
+                        help="exclude decomposed trees with less then X taxa")
+    parser.add_argument('-p', '--partition', action='store_true', 
+                        help="generate partition file")
 
     main(parser.parse_args())
 
